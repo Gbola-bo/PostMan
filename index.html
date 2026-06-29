@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PostMan</title>
+<meta name="theme-color" content="#fb3662">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <img src="assets/logo-icon.svg" alt="" class="logo">
+  <span class="brand-name">PostMan</span>
+  <div class="spacer"></div>
+  <a href="vet.html" class="btn-text-link">Template tool</a>
+</header>
+
+<main class="app-main">
+
+  <!-- ===== Screen: Dashboard ===== -->
+  <section id="screen-dashboard">
+    <h1 class="page-title">Pick a template</h1>
+    <p class="page-subtitle">Choose a design to start filling in your own text and photos.</p>
+    <div class="section-label">Templates</div>
+    <div id="templateGrid" class="template-grid"></div>
+  </section>
+
+  <!-- ===== Screen: Dynamic form ===== -->
+  <section id="screen-form" class="hidden">
+    <a href="#" id="backToDashboard" class="back-link">&larr; Back to templates</a>
+    <h1 class="page-title" id="formTemplateName">Template</h1>
+    <p class="page-subtitle">Fill in your text and photos for each slide.</p>
+    <div id="formSlides"></div>
+    <button type="button" id="generateBtn" class="btn-primary btn-full">Generate design</button>
+  </section>
+
+  <!-- ===== Screen: Generating ===== -->
+  <section id="screen-generating" class="hidden">
+    <h1 class="page-title">Generating your design</h1>
+    <p class="page-subtitle">This can take a minute or more, especially with animated slides. Please don't close this tab.</p>
+    <div class="progress-bar-track"><div id="progressFill" class="progress-bar-fill" style="width:0%"></div></div>
+    <div id="statusLog" class="status-log"></div>
+  </section>
+
+  <!-- ===== Screen: Results ===== -->
+  <section id="screen-results" class="hidden">
+    <h1 class="page-title">Your designs are ready</h1>
+    <p class="page-subtitle">Download each slide, or all of them at once.</p>
+    <div id="resultsGrid" class="results-grid"></div>
+    <button type="button" id="startOverBtn" class="btn-secondary btn-full" style="margin-top:18px;">Start a new design</button>
+  </section>
+
+</main>
+
+<!-- ===== Crop modal (shared across all slide fields) ===== -->
+<div id="cropModalOverlay" class="modal-overlay">
+  <div class="modal-card">
+    <h3>Choose what part of your photo shows here</h3>
+    <canvas id="cropCanvas"></canvas>
+    <div class="zoom-row">
+      <span>Zoom</span>
+      <input type="range" id="cropZoomSlider" min="0" max="100" value="0">
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="cropCancelBtn" class="btn-secondary">Use default</button>
+      <button type="button" id="cropConfirmBtn" class="btn-primary">Confirm crop</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PostMan - Template tool</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .vet-main { max-width: 640px; margin: 0 auto; padding: 28px 20px 60px; }
+  textarea.json-output {
+    width: 100%; min-height: 220px; font-family: ui-monospace, monospace; font-size: 12px;
+    border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 10px;
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <img src="assets/logo-icon.svg" alt="" class="logo">
+  <span class="brand-name">PostMan</span>
+  <div class="spacer"></div>
+  <a href="index.html" class="btn-text-link">&larr; Back to app</a>
+</header>
+
+<main class="vet-main">
+  <h1 class="page-title">Vet a template</h1>
+  <p class="page-subtitle">
+    Run this before adding any new .psd to the app. It checks the file
+    against the template spec and, if it passes, gives you the exact JSON
+    to paste into <code>templates/manifest.json</code>.
+  </p>
+
+  <label class="field-label">PSD file</label>
+  <div class="file-row" style="margin-bottom:14px;">
+    <label class="file-input-label">Choose file<input type="file" id="psdFile" accept=".psd" class="hidden"></label>
+    <span id="psdFileName" class="file-name"></span>
+  </div>
+
+  <label class="field-label">Template ID (lowercase, no spaces - used as the JSON key and suggested filename)</label>
+  <input type="text" id="templateId" class="text-input" placeholder="e.g. real-estate-carousel">
+
+  <label class="field-label">Display name</label>
+  <input type="text" id="templateName" class="text-input" placeholder="e.g. Real Estate Carousel">
+
+  <label class="field-label">Expected artboard names (comma-separated)</label>
+  <input type="text" id="artboardNames" class="text-input" value="Cover,Middle,Last">
+
+  <label class="field-label">Which one (if any) is repeatable, like a carousel's middle slides? Leave blank if none.</label>
+  <input type="text" id="repeatableName" class="text-input" value="Middle">
+
+  <label class="field-label">
+    Your current manifest.json contents (optional - paste it so the tool
+    can hand you back the complete, correctly merged file. Leave empty if
+    this is your first template.)
+  </label>
+  <textarea id="currentManifestInput" class="json-output" placeholder='{"templates": []}'></textarea>
+
+  <button type="button" id="runVetBtn" class="btn-primary btn-full" style="margin-top:18px;" disabled>Run vetting</button>
+
+  <div id="reportBox" class="hidden" style="margin-top:18px;">
+    <p id="reportSummary" style="font-size:14px; font-weight:600;"></p>
+    <ul id="reportIssues" style="font-size:13px; color:var(--danger-text); padding-left:20px;"></ul>
+    <ul id="reportNotes" style="font-size:13px; color:var(--text-secondary); padding-left:20px;"></ul>
+  </div>
+
+  <div id="thumbnailBox" class="hidden" style="margin-top:18px;">
+    <p style="font-size:13px; font-weight:600; margin-bottom:8px;">Dashboard preview</p>
+    <p style="font-size:12px; color:var(--text-tertiary); margin-bottom:10px;">
+      Generated automatically from the template's actual default state - no
+      separate image to create or keep in sync. Prefer a custom shot
+      instead? Upload one below and it'll replace this.
+    </p>
+    <img id="thumbnailPreview" alt="Template preview" style="max-width:220px; border:1px solid var(--border-default); border-radius:var(--radius-md); display:block; margin-bottom:10px;">
+    <a id="thumbnailDownloadLink" class="btn-secondary" download style="display:inline-block; margin-bottom:14px;">Download preview image</a>
+    <label class="field-label">Or use your own image instead</label>
+    <div class="file-row">
+      <label class="file-input-label">Choose image<input type="file" id="customThumbnailFile" accept="image/*" class="hidden"></label>
+      <span id="customThumbnailName" class="file-name"></span>
+    </div>
+  </div>
+
+  <div id="manifestBox" class="hidden" style="margin-top:18px;">
+    <p style="font-size:13px; font-weight:600; margin-bottom:8px;">
+      Your complete, updated manifest.json - this is the whole file.
+      Copy it and use it to <strong>replace the entire contents</strong> of
+      <code>templates/manifest.json</code> (don't try to merge it by hand -
+      this already includes everything you pasted in above, plus this
+      template added or updated).
+    </p>
+    <textarea id="manifestOutput" class="json-output" readonly></textarea>
+    <button type="button" id="copyManifestBtn" class="btn-secondary" style="margin-top:8px;">Copy to clipboard</button>
+    <p style="font-size:12px; color:var(--text-tertiary); margin-top:8px;">
+      Also copy the actual <code>.psd</code> file into the <code>templates/</code>
+      folder (matching the JSON's <code>"file"</code> field), and the
+      downloaded preview image into <code>templates/thumbnails/</code>
+      (matching <code>"thumbnail"</code>), then commit and push everything.
+    </p>
+  </div>
+
+  <div id="vetStatusLog" class="status-log hidden"></div>
+</main>
+
+<script type="module" src="vet.js"></script>
+</body>
+</html>

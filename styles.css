@@ -1,0 +1,324 @@
+/* ===== Font - self-hosted, no external runtime dependency ===== */
+@font-face {
+  font-family: "Funnel Display";
+  src: url("assets/fonts/funnel-display-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Funnel Display";
+  src: url("assets/fonts/funnel-display-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Funnel Display";
+  src: url("assets/fonts/funnel-display-latin-600-normal.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Funnel Display";
+  src: url("assets/fonts/funnel-display-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* ===== Brand tokens - extracted from the real logo SVG, same values used in the Next.js version ===== */
+:root {
+  --brand-gradient-start: #ff684d;
+  --brand-gradient-mid: #fb3662;
+  --brand-gradient-end: #9d356c;
+
+  --brand-50: #ffeff2;
+  --brand-100: #fed7e0;
+  --brand-200: #fdb3c3;
+  --brand-400: #fc6e8e;
+  --brand-600: #fb3662;
+  --brand-800: #ac294b;
+  --brand-900: #6b1f38;
+
+  --surface: #ffffff;
+  --surface-secondary: #fafaf9;
+  --surface-tertiary: #f1efe8;
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-default: rgba(0, 0, 0, 0.12);
+  --text-primary: #171717;
+  --text-secondary: #6b6a66;
+  --text-tertiary: #9b9a95;
+
+  --success-bg: #e1f5ee;
+  --success-text: #085041;
+  --warning-bg: #faeeda;
+  --warning-text: #633806;
+  --danger-bg: #fcebeb;
+  --danger-text: #791f1f;
+
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: "Funnel Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, p { margin: 0; }
+button { font-family: inherit; cursor: pointer; }
+input, select { font-family: inherit; }
+a { color: inherit; text-decoration: none; }
+img { max-width: 100%; display: block; }
+
+.brand-gradient {
+  background-image: linear-gradient(135deg, var(--brand-gradient-start) 0%, var(--brand-gradient-mid) 45%, var(--brand-gradient-end) 100%);
+}
+
+/* ===== Top bar ===== */
+.topbar {
+  min-height: 56px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  padding-top: env(safe-area-inset-top);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+.topbar .logo { width: 26px; height: 26px; flex-shrink: 0; }
+.topbar .brand-name { font-weight: 600; font-size: 15px; }
+.topbar .spacer { flex: 1; }
+.topbar .btn-text-link { font-size: 13px; color: var(--text-secondary); }
+
+/* ===== Layout shell ===== */
+.app-main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px 16px calc(48px + env(safe-area-inset-bottom));
+}
+@media (min-width: 640px) {
+  .app-main { padding: 28px 24px calc(48px + env(safe-area-inset-bottom)); }
+}
+
+/* ===== Dashboard ===== */
+.page-title { font-size: 17px; font-weight: 600; margin-bottom: 2px; }
+.page-subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
+.section-label { font-size: 12px; color: var(--text-tertiary); margin-bottom: 10px; }
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+@media (min-width: 560px) {
+  .template-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.template-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface);
+  transition: border-color 0.15s;
+}
+.template-card:hover, .template-card:active { border-color: var(--border-default); }
+.template-card:active { background: var(--surface-secondary); }
+.template-card .cover {
+  height: 84px;
+  display: flex;
+  align-items: flex-end;
+  padding: 10px;
+  background-size: cover;
+  background-position: center;
+}
+.template-card .cover span {
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.template-card .info { padding: 9px 10px; }
+.template-card .info .name { font-size: 13px; font-weight: 600; }
+.template-card .info .meta { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+/* ===== Buttons ===== */
+.btn-primary {
+  background: var(--brand-600);
+  color: white;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 13px 20px;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 46px;
+}
+.btn-primary:hover, .btn-primary:active { background: var(--brand-800); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary {
+  background: var(--surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 500;
+  padding: 13px 20px;
+  border-radius: var(--radius-md);
+  min-height: 46px;
+}
+.btn-secondary:hover, .btn-secondary:active { background: var(--surface-secondary); }
+
+/* For standalone, screen-level primary actions (Generate, Start over) -
+   full width on mobile where there's nothing beside them to share space
+   with; reverts to a normal inline button once there's room. The crop
+   modal's two buttons deliberately don't use this - they sit side by
+   side in a narrow space and need their natural compact width instead. */
+.btn-full { width: 100%; }
+@media (min-width: 480px) {
+  .btn-full { width: auto; }
+}
+
+/* ===== Form ===== */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+}
+
+.slide-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.slide-card .slide-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.field-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+  margin-top: 12px;
+}
+.field-label:first-of-type { margin-top: 0; }
+.text-input, .select-input {
+  width: 100%;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 12px 13px;
+  font-size: 16px;
+  min-height: 44px;
+  background: var(--surface);
+  color: var(--text-primary);
+}
+.text-input:focus, .select-input:focus { outline: 2px solid var(--brand-200); border-color: var(--brand-600); }
+
+.file-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.file-input-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 11px 16px;
+  min-height: 44px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.file-input-label:hover, .file-input-label:active { background: var(--surface-secondary); }
+.file-name { font-size: 12px; color: var(--text-secondary); }
+.crop-edit-link {
+  font-size: 13px; color: var(--brand-600); font-weight: 600;
+  padding: 8px 4px; cursor: pointer; min-height: 44px; display: inline-flex; align-items: center;
+}
+
+.middle-count-row { display: flex; align-items: center; gap: 10px; margin: 14px 0 16px; flex-wrap: wrap; }
+.middle-count-row .text-input { width: 80px; flex: none; }
+
+/* ===== Crop modal ===== */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65);
+  display: none; align-items: center; justify-content: center; z-index: 100;
+  padding: 16px;
+}
+.modal-overlay.open { display: flex; }
+.modal-card {
+  background: var(--surface); border-radius: var(--radius-lg);
+  padding: 18px; max-width: 92vw; max-height: 88vh; overflow-y: auto;
+}
+.modal-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+#cropCanvas { border: 1px solid var(--border-default); border-radius: 6px; cursor: grab; touch-action: none; display: block; }
+.zoom-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.zoom-row span { font-size: 11px; color: var(--text-secondary); }
+.zoom-row input[type="range"] { flex: 1; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+.modal-actions .btn-primary, .modal-actions .btn-secondary { flex: 1 1 auto; }
+
+/* ===== Progress / status ===== */
+.status-log {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 14px;
+  max-height: 280px;
+  overflow-y: auto;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 16px;
+}
+.status-line.info { color: var(--text-secondary); }
+.status-line.ok { color: var(--success-text); }
+.status-line.warn { color: var(--warning-text); }
+.status-line.err { color: var(--danger-text); }
+
+.progress-bar-track { height: 6px; border-radius: 4px; background: var(--surface-tertiary); overflow: hidden; margin: 16px 0; }
+.progress-bar-fill { height: 100%; background: var(--brand-600); transition: width 0.3s; }
+
+/* ===== Results ===== */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-top: 16px;
+}
+@media (min-width: 560px) {
+  .results-grid { grid-template-columns: repeat(3, 1fr); }
+}
+.result-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 10px;
+}
+.result-card .label { font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+.result-card img, .result-card video { border-radius: 6px; width: 100%; background: var(--surface-secondary); }
+.result-card .download-btn {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  margin-top: 8px; width: 100%; font-size: 13px; font-weight: 600;
+  padding: 12px; min-height: 44px; border-radius: var(--radius-md);
+  border: 1px solid var(--border-default); background: var(--surface);
+}
+.result-card .download-btn:hover, .result-card .download-btn:active { background: var(--surface-secondary); }
+.result-card .caveat { font-size: 10px; color: var(--text-tertiary); margin-top: 4px; }
+
+.hidden { display: none !important; }
