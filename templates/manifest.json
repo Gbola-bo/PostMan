@@ -1,14 +1,346 @@
 {
   "templates": [
     {
-      "id": "example-carousel",
-      "name": "Example Carousel (replace me)",
-      "file": "templates/example-carousel.psd",
-      "thumbnail": null,
-      "artboards": ["Cover", "Middle", "Last"],
+      "id": "playstreetgist",
+      "name": "PlayStreet-GIST",
+      "file": "templates/playstreetgist.psd",
+      "thumbnail": "templates/thumbnails/playstreetgist.png",
+      "artboards": [
+        "Cover",
+        "Middle",
+        "Last"
+      ],
       "repeatable": "Middle",
-      "vettedAt": null,
-      "metadata": null
+      "vettedAt": "2026-06-29T20:47:51.674Z",
+      "metadata": {
+        "artboards": [
+          {
+            "name": "cover",
+            "typename": "LayerSet",
+            "bounds": {
+              "left": 0,
+              "top": 0,
+              "right": 1080,
+              "bottom": 1350,
+              "width": 1080,
+              "height": 1350
+            },
+            "boundsError": null,
+            "childLayerNames": [
+              {
+                "name": "headline text",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 158,
+                  "top": 1118,
+                  "right": 906,
+                  "bottom": 1223,
+                  "width": 748,
+                  "height": 105
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Vector Smart Object copy 5",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 49,
+                  "top": 59,
+                  "right": 363,
+                  "bottom": 190,
+                  "width": 314,
+                  "height": 131
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Image",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": -92,
+                  "top": -118,
+                  "right": 1172,
+                  "bottom": 1469,
+                  "width": 1264,
+                  "height": 1587
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Image Placeholder",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 1080,
+                  "bottom": 1350,
+                  "width": 1080,
+                  "height": 1350
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Layer 2",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "boundsError": null
+              }
+            ]
+          },
+          {
+            "name": "middle",
+            "typename": "LayerSet",
+            "bounds": {
+              "left": 1197,
+              "top": 0,
+              "right": 2277,
+              "bottom": 1350,
+              "width": 1080,
+              "height": 1350
+            },
+            "boundsError": null,
+            "childLayerNames": [
+              {
+                "name": "Playstreet Logo",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 1246,
+                  "top": 59,
+                  "right": 1560,
+                  "bottom": 190,
+                  "width": 314,
+                  "height": 131
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Arrow",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2164,
+                  "top": 1256,
+                  "right": 2197,
+                  "bottom": 1300,
+                  "width": 33,
+                  "height": 44
+                },
+                "boundsError": null
+              },
+              {
+                "name": "headline text",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 1334,
+                  "top": 1135,
+                  "right": 2137,
+                  "bottom": 1237,
+                  "width": 803,
+                  "height": 102
+                },
+                "boundsError": null
+              },
+              {
+                "name": "@playstreetng",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 1638,
+                  "top": 1269,
+                  "right": 1837,
+                  "bottom": 1296,
+                  "width": 199,
+                  "height": 27
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Rectangle 13",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 1123.0230799913406,
+                  "top": 1076.4920085668564,
+                  "right": 2362.976839900017,
+                  "bottom": 1484.0100556612015,
+                  "width": 1239.9537599086761,
+                  "height": 407.5180470943451
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Image",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 1081,
+                  "top": -148,
+                  "right": 2393,
+                  "bottom": 1499,
+                  "width": 1312,
+                  "height": 1647
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Image Placeholder",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 1192.0062611103058,
+                  "top": -0.013437867164611816,
+                  "right": 2277.013374567032,
+                  "bottom": 1157.008409500122,
+                  "width": 1085.007113456726,
+                  "height": 1157.0218473672867
+                },
+                "boundsError": null
+              }
+            ]
+          },
+          {
+            "name": "last",
+            "typename": "LayerSet",
+            "bounds": {
+              "left": 2394,
+              "top": 0,
+              "right": 3474,
+              "bottom": 1350,
+              "width": 1080,
+              "height": 1350
+            },
+            "boundsError": null,
+            "childLayerNames": [
+              {
+                "name": "Drop in the comment",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2592,
+                  "top": 581,
+                  "right": 3238,
+                  "bottom": 808,
+                  "width": 646,
+                  "height": 227
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Vector Smart Object copy 7",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2466,
+                  "top": 59,
+                  "right": 2780,
+                  "bottom": 190,
+                  "width": 314,
+                  "height": 131
+                },
+                "boundsError": null
+              },
+              {
+                "name": "headline text",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2745,
+                  "top": 456,
+                  "right": 3178,
+                  "bottom": 523,
+                  "width": 433,
+                  "height": 67
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Rectangle 12",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2587.002125144005,
+                  "top": 388.99421792411243,
+                  "right": 3308.9853644371033,
+                  "bottom": 628.9968825398547,
+                  "width": 721.9832392930984,
+                  "height": 240.00266461574228
+                },
+                "boundsError": null
+              },
+              {
+                "name": "@playstreetng",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2835,
+                  "top": 1269,
+                  "right": 3034,
+                  "bottom": 1296,
+                  "width": 199,
+                  "height": 27
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Rectangle 13",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2370.987622976303,
+                  "top": 1245.9954142570496,
+                  "right": 3509.012259364128,
+                  "bottom": 1432.0046246051788,
+                  "width": 1138.024636387825,
+                  "height": 186.00921034812927
+                },
+                "boundsError": null
+              },
+              {
+                "name": "_ (60)",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 1251,
+                  "top": -46,
+                  "right": 4284,
+                  "bottom": 1661,
+                  "width": 3033,
+                  "height": 1707
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Color Fill 3",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "boundsError": null
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }
