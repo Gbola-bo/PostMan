@@ -12,18 +12,3 @@
     }
   ]
 }
-
-{
-  "templates": [
-    {
-      "id": "example-carousel",
-      "name": "Example Carousel (replace me)",
-      "file": "templates/example-carousel.psd",
-      "thumbnail": null,
-      "artboards": ["Cover", "Middle", "Last"],
-      "repeatable": "Middle",
-      "vettedAt": null,
-      "metadata": null
-    }
-  ]
-}
