@@ -88,6 +88,11 @@ runVetBtn.addEventListener('click', async () => {
   $('customThumbnailName').textContent = '';
 
   const expectedArtboards = $('artboardNames').value.split(',').map((s) => s.trim()).filter(Boolean);
+  if (!expectedArtboards.length) {
+    alert('Enter at least one expected artboard name before running vetting - without one, vetting would "pass" having checked nothing.');
+    runVetBtn.disabled = false;
+    return;
+  }
   const repeatable = $('repeatableName').value.trim() || null;
   const templateId = $('templateId').value.trim() || 'untitled-template';
   const templateName = $('templateName').value.trim() || templateId;
