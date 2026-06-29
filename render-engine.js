@@ -896,6 +896,9 @@ export class PostManRenderEngine {
    * @param {string[]} expectedArtboardNames - e.g. ['Cover', 'Middle', 'Last']
    */
   async vetTemplate(expectedArtboardNames) {
+    if (!Array.isArray(expectedArtboardNames) || !expectedArtboardNames.length) {
+      throw new Error('vetTemplate() requires at least one expected artboard name - with none, every check is vacuously satisfied and it would "pass" having checked nothing.');
+    }
     const extraction = await this.extract();
     const artboards = extraction.artboards || [];
     const byLowerName = new Map(artboards.map((ab) => [ab.name.toLowerCase(), ab]));
