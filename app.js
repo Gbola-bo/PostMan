@@ -20,7 +20,11 @@ let middleCount = 1;
 
 // ---------- Load manifest, render dashboard ----------
 async function loadManifest() {
-  const res = await fetch('templates/manifest.json');
+  // no-store + a timestamp query param: belt-and-suspenders against both
+  // the browser's own cache and any CDN/proxy in front of GitHub Pages
+  // serving a stale copy. manifest.json changes every time a template is
+  // added, so staleness here directly causes "I pushed but don't see it."
+  const res = await fetch(`templates/manifest.json?t=${Date.now()}`, { cache: 'no-store' });
   manifest = await res.json();
   renderDashboard();
 }
