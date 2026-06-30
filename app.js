@@ -18,6 +18,31 @@ let currentTemplate = null;
 const cropRects = new Map(); // keyed by slide key ('cover', 'middle-0', ...)
 let middleCount = 1;
 let currentPageIndex = 0;
+const templateDetailsCache = new Map(); // template id -> metadata, fetched lazily on first open
+
+// Fetches the heavy per-layer metadata for one template, only when it's
+// actually opened - never upfront for the whole list. This is the whole
+// point of splitting the manifest: dashboard load time stays flat no
+// matter how many templates exist, since none of their detail files are
+// touched until a user picks that specific one.
+//
+// Backward compatible with old-format manifests where metadata was still
+// embedded directly on the index entry (from before this split existed) -
+// in that case it's already in hand, no fetch needed at all.
+async function fetchTemplateMetadata(template) {
+  if (template.metadata) return template.metadata;
+  if (templateDetailsCache.has(template.id)) return templateDetailsCache.get(template.id);
+  const res = await fetch(`templates/details/${template.id}.json?t=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(
+      `Could not load details for "${template.name}" (HTTP ${res.status}). ` +
+      `Was templates/details/${template.id}.json committed? Re-run the template tool if needed.`
+    );
+  }
+  const details = await res.json();
+  templateDetailsCache.set(template.id, details.metadata);
+  return details.metadata;
+}
 
 // ---------- Load manifest, render dashboard ----------
 async function loadManifest() {
@@ -59,20 +84,40 @@ function escapeHtml(s) {
 }
 
 // ---------- Dynamic form ----------
-function openTemplate(template, { forceRebuild = false } = {}) {
-  if (!template.metadata) {
-    alert(`"${template.name}" hasn't been vetted yet - its metadata is missing from the manifest. Run the template tool first (see vet.html), then add the result here before this template can be used.`);
+async function openTemplate(template, { forceRebuild = false } = {}) {
+  const isSameTemplate = currentTemplate && currentTemplate.id === template.id;
+  const needsRebuild = forceRebuild || !isSameTemplate || !$('formPagesTrack').children.length;
+
+  if (!needsRebuild) {
+    showScreen('form');
     return;
   }
-  const isSameTemplate = currentTemplate && currentTemplate.id === template.id;
-  currentTemplate = template;
-  if (forceRebuild || !isSameTemplate || !$('formPagesTrack').children.length) {
-    cropRects.clear();
-    middleCount = 1;
-    $('formTemplateName').textContent = template.name;
-    renderForm();
-  }
+
+  // Transition immediately so the tap feels responsive, then stream the
+  // real content in once the (usually fast, but not instant) details
+  // fetch resolves - rather than leaving the dashboard looking frozen.
+  $('formTemplateName').textContent = template.name;
+  $('formPagesTrack').innerHTML = '<div style="padding:60px 0; text-align:center; color:var(--text-tertiary); font-size:13px;">Loading template...</div>';
+  $('middleCountRow').classList.add('hidden');
+  $('carouselDots').innerHTML = '';
+  $('carouselPrevBtn').classList.add('hidden');
+  $('carouselNextBtn').classList.add('hidden');
   showScreen('form');
+
+  let metadata;
+  try {
+    metadata = await fetchTemplateMetadata(template);
+  } catch (e) {
+    $('formPagesTrack').innerHTML = '';
+    alert(e.message);
+    showScreen('dashboard');
+    return;
+  }
+
+  currentTemplate = { ...template, metadata };
+  cropRects.clear();
+  middleCount = 1;
+  renderForm();
 }
 
 function aspectInfoFor(artboardName) {
