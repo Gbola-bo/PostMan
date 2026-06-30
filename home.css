@@ -2,13 +2,10 @@
    shared design tokens (--brand-*, --surface-*, font-face, etc). This
    file only adds the layout specific to this one page.
 
-   Pill/cursor/logo positions below were measured directly from the real
-   rendered screenshot via pixel analysis (connected-component detection
-   on the pill's exact fill color, and saturation-based detection for the
-   logo's bounding box) - not eyeballed. Every element is positioned by
-   its CENTER point using translate(-50%,-50%), which is what was
-   actually measured, rather than guessing a top-left offset that would
-   shift depending on each pill's own (text-dependent) width. */
+   Pill/cursor/logo positions are measured from real rendered screenshots
+   (connected-component detection on each pill's exact fill color, and
+   saturation-based detection for the logo's bounding box), then adjusted
+   by a uniform shift per round of feedback - not eyeballed each time. */
 
 .home-body {
   margin: 0;
@@ -29,14 +26,15 @@
   margin: 0 auto;
   transition: transform 0.46s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.38s ease-out;
 }
-/* Applied via JS right before navigating away, so the whole scene exits
-   together as one clean upward swipe instead of the page just jumping. */
 .home-stage.is-leaving {
   transform: translateY(-14%);
   opacity: 0;
 }
 
-/* ===== Scattered pill tags ===== */
+/* ===== Scattered pill tags =====
+   Pushed clear of the logo on both sides by an equal shift (7%), since
+   the previous spacing measured as actively overlapping at the top
+   (Gist's pill clipped into the logo) and too tight at the bottom. */
 .home-pill {
   position: absolute;
   background: var(--brand-100);
@@ -47,36 +45,47 @@
   border-radius: 999px;
   white-space: nowrap;
   transform: translate(-50%, -50%) rotate(var(--rot));
+  animation: pillBreathe 3.6s ease-in-out infinite;
+  animation-delay: var(--pulse-delay, 0s);
 }
-.home-pill-1 { --rot: -13deg; top: 29.1%; left: 22.4%; }
-.home-pill-2 { --rot: -7deg;  top: 34.1%; left: 43.3%; }
-.home-pill-3 { --rot: 11deg;  top: 28.3%; left: 73.6%; }
-.home-pill-4 { --rot: -10deg; top: 57.8%; left: 23.2%; }
-.home-pill-5 { --rot: 8deg;   top: 57.8%; left: 77.7%; }
-.home-pill-6 { --rot: -4deg;  top: 61.0%; left: 50.1%; }
+.home-pill-1 { --rot: -13deg; --pulse-delay: 0s;    top: 22.1%; left: 22.4%; }
+.home-pill-2 { --rot: -7deg;  --pulse-delay: 0.6s;  top: 27.1%; left: 43.3%; }
+.home-pill-3 { --rot: 11deg;  --pulse-delay: 1.2s;  top: 21.3%; left: 73.6%; }
+.home-pill-4 { --rot: -10deg; --pulse-delay: 1.8s;  top: 64.8%; left: 23.2%; }
+.home-pill-5 { --rot: 8deg;   --pulse-delay: 2.3s;  top: 64.8%; left: 77.7%; }
+.home-pill-6 { --rot: -4deg;  --pulse-delay: 0.3s;  top: 68.0%; left: 50.1%; }
 
-/* ===== Cursor accents - idle "pop" loop so they draw the eye even when
-   nothing is being touched, plus the swipe-up exit applies to them too
-   since they're inside .home-stage. ===== */
+/* Subtle "alive" breathing - gentle scale, no movement, slow and quiet
+   so it reads as ambient life rather than competing for attention. Each
+   pill is offset via --pulse-delay so they don't all move in lockstep. */
+@keyframes pillBreathe {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.035; }
+}
+
+/* ===== Cursor accents =====
+   Slower and softer pop than before (was 1.7s up to 1.22 scale - now
+   2.6s up to 1.12, smoother easing) so it reads as a gentle pulse, not a
+   jolt. Cursor-2 also moved clear of the Carousel pill's text - it was
+   sitting almost directly over the word "Carousel"; now sits below-left
+   of the pill, pointing up into the corner the way cursor-1 already does
+   with Content (below-left, not overlapping the text row). */
 .home-cursor {
   position: absolute;
   width: 26px;
   height: 26px;
   transform-origin: center;
-  animation: cursorPop 1.7s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+  animation: cursorPop 2.6s ease-in-out infinite;
 }
-.home-cursor-1 { top: 31.5%; left: 68.4%; transform: translate(-50%, -50%) rotate(8deg); animation-delay: 0s; }
-.home-cursor-2 { top: 58.7%; left: 16.2%; transform: translate(-50%, -50%) rotate(-4deg); animation-delay: 0.55s; }
+.home-cursor-1 { top: 28.3%; left: 68.4%; transform: translate(-50%, -50%) rotate(8deg); animation-delay: 0s; }
+.home-cursor-2 { top: 69.8%; left: 14%;   transform: translate(-50%, -50%) rotate(-4deg); animation-delay: 0.9s; }
 
 @keyframes cursorPop {
   0%, 100% { scale: 1; }
-  35% { scale: 1.22; }
-  55% { scale: 0.96; }
-  75% { scale: 1.08; }
+  50% { scale: 1.12; }
 }
-/* Respect reduced-motion preferences - the pop is decorative, never load-bearing. */
 @media (prefers-reduced-motion: reduce) {
-  .home-cursor { animation: none; }
+  .home-cursor, .home-pill { animation: none; }
 }
 
 /* ===== The real logo artwork, centered on its measured midpoint ===== */
