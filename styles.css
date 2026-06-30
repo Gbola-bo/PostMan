@@ -129,18 +129,30 @@ img { max-width: 100%; display: block; }
 .template-card:hover, .template-card:active { border-color: var(--border-default); }
 .template-card:active { background: var(--surface-secondary); }
 .template-card .cover {
-  height: 84px;
-  display: flex;
-  align-items: flex-end;
-  padding: 10px;
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
   background-size: cover;
-  background-position: center;
+  background-position: top center;
 }
-.template-card .cover span {
+.template-card .cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+.template-card .cover .cover-caption {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 16px 10px 8px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+}
+.template-card .cover .cover-caption span {
   color: white;
   font-size: 13px;
   font-weight: 600;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 .template-card .info { padding: 9px 10px; }
 .template-card .info .name { font-size: 13px; font-weight: 600; }
