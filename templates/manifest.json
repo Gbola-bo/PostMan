@@ -1001,6 +1001,367 @@
           }
         ]
       }
+    },
+    {
+      "id": "playstreetsportwritten",
+      "name": "PlayStreet Sport (M-text)",
+      "file": "templates/playstreetsportwritten.psd",
+      "thumbnail": "templates/thumbnails/playstreetsportwritten.png",
+      "artboards": [
+        "Cover",
+        "Middle",
+        "Last"
+      ],
+      "repeatable": "Middle",
+      "artboardPreviews": {
+        "cover": "templates/thumbnails/playstreetsportwritten-cover.png",
+        "middle": "templates/thumbnails/playstreetsportwritten-middle.png",
+        "last": "templates/thumbnails/playstreetsportwritten-last.png"
+      },
+      "vettedAt": "2026-06-30T12:12:22.425Z",
+      "metadata": {
+        "artboards": [
+          {
+            "name": "cover",
+            "typename": "LayerSet",
+            "bounds": {
+              "left": 0,
+              "top": 0,
+              "right": 1080,
+              "bottom": 1350,
+              "width": 1080,
+              "height": 1350
+            },
+            "boundsError": null,
+            "childLayerNames": [
+              {
+                "name": "Playstreet Logo",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 49,
+                  "top": 59,
+                  "right": 363,
+                  "bottom": 190,
+                  "width": 314,
+                  "height": 131
+                },
+                "boundsError": null
+              },
+              {
+                "name": "headline text",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 169,
+                  "top": 1070,
+                  "right": 887,
+                  "bottom": 1234,
+                  "width": 718,
+                  "height": 164
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Image",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": -1,
+                  "top": -42,
+                  "right": 1081,
+                  "bottom": 1400,
+                  "width": 1082,
+                  "height": 1442
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Image Placeholder",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 35.69831728935242,
+                  "top": 44.622811675071716,
+                  "right": 1044.3018708229065,
+                  "bottom": 1305.3771883249283,
+                  "width": 1008.6035535335541,
+                  "height": 1260.7543766498566
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Layer 5",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": -511,
+                  "top": -191,
+                  "right": 1686,
+                  "bottom": 2007,
+                  "width": 2197,
+                  "height": 2198
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Layer 4",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "boundsError": null
+              }
+            ]
+          },
+          {
+            "name": "middle",
+            "typename": "LayerSet",
+            "bounds": {
+              "left": 1139,
+              "top": 0,
+              "right": 2219,
+              "bottom": 1350,
+              "width": 1080,
+              "height": 1350
+            },
+            "boundsError": null,
+            "childLayerNames": [
+              {
+                "name": "Layer 3",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 1139,
+                  "top": 1071,
+                  "right": 2219,
+                  "bottom": 1088,
+                  "width": 1080,
+                  "height": 17
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Playstreet Logo",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 1188,
+                  "top": 59,
+                  "right": 1502,
+                  "bottom": 190,
+                  "width": 314,
+                  "height": 131
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Arrow",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2103,
+                  "top": 1193,
+                  "right": 2136,
+                  "bottom": 1237,
+                  "width": 33,
+                  "height": 44
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 1306,
+                  "top": 1135,
+                  "right": 2038,
+                  "bottom": 1237,
+                  "width": 732,
+                  "height": 102
+                },
+                "boundsError": null
+              },
+              {
+                "name": "@playstreetng",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 1580,
+                  "top": 1269,
+                  "right": 1779,
+                  "bottom": 1296,
+                  "width": 199,
+                  "height": 27
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Rectangle 13",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 1115.987776875496,
+                  "top": 1085.9901666641235,
+                  "right": 2254.0123957395554,
+                  "bottom": 1484.0098142623901,
+                  "width": 1138.0246188640594,
+                  "height": 398.0196475982666
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Image",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 1138,
+                  "top": 0,
+                  "right": 2220,
+                  "bottom": 1442,
+                  "width": 1082,
+                  "height": 1442
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Image Holder",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 1134.006063580513,
+                  "top": -0.012552738189697266,
+                  "right": 2219.0133695602417,
+                  "bottom": 1080.0079017877579,
+                  "width": 1085.0073059797287,
+                  "height": 1080.0204545259476
+                },
+                "boundsError": null
+              }
+            ]
+          },
+          {
+            "name": "last",
+            "typename": "LayerSet",
+            "bounds": {
+              "left": 2302,
+              "top": 0,
+              "right": 3382,
+              "bottom": 1350,
+              "width": 1080,
+              "height": 1350
+            },
+            "boundsError": null,
+            "childLayerNames": [
+              {
+                "name": "Layer 3",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2302,
+                  "top": 1071,
+                  "right": 3382,
+                  "bottom": 1088,
+                  "width": 1080,
+                  "height": 17
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Playstreet Logo",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2351,
+                  "top": 59,
+                  "right": 2665,
+                  "bottom": 190,
+                  "width": 314,
+                  "height": 131
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2435,
+                  "top": 1135,
+                  "right": 3263,
+                  "bottom": 1237,
+                  "width": 828,
+                  "height": 102
+                },
+                "boundsError": null
+              },
+              {
+                "name": "@playstreetng",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2743,
+                  "top": 1269,
+                  "right": 2942,
+                  "bottom": 1296,
+                  "width": 199,
+                  "height": 27
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Rectangle 13",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2278.987711787224,
+                  "top": 1085.9901666641235,
+                  "right": 3417.0123306512833,
+                  "bottom": 1484.0098142623901,
+                  "width": 1138.0246188640594,
+                  "height": 398.0196475982666
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Image",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2301,
+                  "top": 0,
+                  "right": 3383,
+                  "bottom": 1442,
+                  "width": 1082,
+                  "height": 1442
+                },
+                "boundsError": null
+              },
+              {
+                "name": "Image Holder",
+                "typename": "ArtLayer",
+                "depth": 1,
+                "bounds": {
+                  "left": 2297.0062000751495,
+                  "top": -0.012552738189697266,
+                  "right": 3382.0133044719696,
+                  "bottom": 1080.0079017877579,
+                  "width": 1085.00710439682,
+                  "height": 1080.0204545259476
+                },
+                "boundsError": null
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }
