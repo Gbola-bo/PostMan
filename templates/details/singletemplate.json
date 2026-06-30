@@ -1,0 +1,105 @@
+{
+  "metadata": {
+    "artboards": [
+      {
+        "name": "cover",
+        "typename": "LayerSet",
+        "bounds": {
+          "left": 0,
+          "top": 0,
+          "right": 1080,
+          "bottom": 1350,
+          "width": 1080,
+          "height": 1350
+        },
+        "boundsError": null,
+        "childLayerNames": [
+          {
+            "name": "PlatStreet Logo",
+            "typename": "ArtLayer",
+            "depth": 1,
+            "bounds": {
+              "left": 84,
+              "top": 59,
+              "right": 398,
+              "bottom": 190,
+              "width": 314,
+              "height": 131
+            },
+            "boundsError": null
+          },
+          {
+            "name": "headline text",
+            "typename": "ArtLayer",
+            "depth": 1,
+            "bounds": {
+              "left": 130,
+              "top": 991,
+              "right": 966,
+              "bottom": 1093,
+              "width": 836,
+              "height": 102
+            },
+            "boundsError": null
+          },
+          {
+            "name": "@playstreetng",
+            "typename": "ArtLayer",
+            "depth": 1,
+            "bounds": {
+              "left": 461,
+              "top": 1257,
+              "right": 659,
+              "bottom": 1284,
+              "width": 198,
+              "height": 27
+            },
+            "boundsError": null
+          },
+          {
+            "name": "Image",
+            "typename": "ArtLayer",
+            "depth": 1,
+            "bounds": {
+              "left": -27,
+              "top": -28,
+              "right": 1107,
+              "bottom": 1394,
+              "width": 1134,
+              "height": 1422
+            },
+            "boundsError": null
+          },
+          {
+            "name": "Image Holder",
+            "typename": "ArtLayer",
+            "depth": 1,
+            "bounds": {
+              "left": 0,
+              "top": 281,
+              "right": 1091,
+              "bottom": 855,
+              "width": 1091,
+              "height": 574
+            },
+            "boundsError": null
+          },
+          {
+            "name": "Background",
+            "typename": "ArtLayer",
+            "depth": 1,
+            "bounds": {
+              "left": -26,
+              "top": -118,
+              "right": 1106,
+              "bottom": 1468,
+              "width": 1132,
+              "height": 1586
+            },
+            "boundsError": null
+          }
+        ]
+      }
+    ]
+  }
+}
