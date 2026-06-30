@@ -3,88 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>PostMan</title>
+<title>PostMann</title>
 <meta name="theme-color" content="#fb3662">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="home.css">
 </head>
-<body>
+<body class="home-body">
 
-<header class="topbar">
-  <img src="assets/logo-icon.svg" alt="" class="logo">
-  <span class="brand-name">PostMan</span>
-  <div class="spacer"></div>
-  <a href="vet.html" class="btn-text-link">Template tool</a>
-</header>
+<div class="home-stage">
+  <div class="home-pill home-pill-1">Posts</div>
+  <div class="home-pill home-pill-2">Gist</div>
+  <div class="home-pill home-pill-3">Content</div>
+  <img src="assets/cursor-accent.svg" alt="" class="home-cursor home-cursor-1">
 
-<main class="app-main">
+  <img src="assets/logo-full.svg" alt="PostMann" class="home-logo">
 
-  <!-- ===== Screen: Dashboard ===== -->
-  <section id="screen-dashboard">
-    <h1 class="page-title">Pick a template</h1>
-    <p class="page-subtitle">Choose a design to start filling in your own text and photos.</p>
-    <div class="section-label">Templates</div>
-    <div id="templateGrid" class="template-grid"></div>
-  </section>
+  <div class="home-pill home-pill-4">Carousel</div>
+  <img src="assets/cursor-accent.svg" alt="" class="home-cursor home-cursor-2">
+  <div class="home-pill home-pill-5">GIF</div>
+  <div class="home-pill home-pill-6">.PNG</div>
 
-  <!-- ===== Screen: Dynamic form ===== -->
-  <section id="screen-form" class="hidden">
-    <a href="#" id="backToDashboard" class="back-link">&larr; Back to templates</a>
-    <h1 class="page-title" id="formTemplateName">Template</h1>
-    <p class="page-subtitle">Swipe or use the arrows to move between slides.</p>
-
-    <div id="middleCountRow" class="middle-count-row hidden">
-      <label class="field-label" style="margin:0;" id="middleCountLabel">How many slides?</label>
-      <input type="number" id="middleCountInput" class="text-input" min="1" max="20" value="1">
-    </div>
-
-    <div class="carousel-wrap">
-      <div id="formPagesTrack" class="carousel-track"></div>
-      <button type="button" id="carouselPrevBtn" class="carousel-arrow carousel-arrow-left" aria-label="Previous slide">&larr;</button>
-      <button type="button" id="carouselNextBtn" class="carousel-arrow carousel-arrow-right" aria-label="Next slide">&rarr;</button>
-    </div>
-    <div id="carouselDots" class="carousel-dots"></div>
-
-    <button type="button" id="generateBtn" class="btn-primary btn-full" style="margin-top:20px;">Generate design</button>
-  </section>
-
-  <!-- ===== Screen: Generating ===== -->
-  <section id="screen-generating" class="hidden">
-    <h1 class="page-title">Generating your design</h1>
-    <p class="page-subtitle">This can take a minute or more, especially with animated slides. Please don't close this tab.</p>
-    <div class="progress-bar-track"><div id="progressFill" class="progress-bar-fill" style="width:0%"></div></div>
-    <div id="statusLog" class="status-log"></div>
-  </section>
-
-  <!-- ===== Screen: Results ===== -->
-  <section id="screen-results" class="hidden">
-    <a href="#" id="backToFormFromResults" class="back-link">&larr; Back to editing</a>
-    <h1 class="page-title">Your designs are ready</h1>
-    <p class="page-subtitle">Download each slide, or all of them at once.</p>
-    <button type="button" id="downloadAllBtn" class="btn-secondary btn-full hidden" style="margin-bottom:14px;">Download all (.zip)</button>
-    <div id="resultsGrid" class="results-grid"></div>
-    <button type="button" id="startOverBtn" class="btn-secondary btn-full" style="margin-top:18px;">Start a new design</button>
-  </section>
-
-</main>
-
-<!-- ===== Crop modal (shared across all slide fields) ===== -->
-<div id="cropModalOverlay" class="modal-overlay">
-  <div class="modal-card">
-    <h3>Choose what part of your photo shows here</h3>
-    <canvas id="cropCanvas"></canvas>
-    <div class="zoom-row">
-      <span>Zoom</span>
-      <input type="range" id="cropZoomSlider" min="0" max="100" value="0">
-    </div>
-    <div class="modal-actions">
-      <button type="button" id="cropCancelBtn" class="btn-secondary">Use default</button>
-      <button type="button" id="cropConfirmBtn" class="btn-primary">Confirm crop</button>
-    </div>
+  <div class="home-actions">
+    <a href="app.html" class="home-action-link">Get Started</a>
+    <a href="vet.html" class="home-action-link home-action-secondary">Template tool</a>
   </div>
 </div>
 
-<script type="module" src="app.js"></script>
 </body>
 </html>
