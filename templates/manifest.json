@@ -11,7 +11,12 @@
         "Last"
       ],
       "repeatable": "Middle",
-      "vettedAt": "2026-06-29T20:47:51.674Z",
+      "artboardPreviews": {
+        "cover": "templates/thumbnails/playstreetgist-cover.png",
+        "middle": "templates/thumbnails/playstreetgist-middle.png",
+        "last": "templates/thumbnails/playstreetgist-last.png"
+      },
+      "vettedAt": "2026-06-30T03:23:11.407Z",
       "metadata": {
         "artboards": [
           {
