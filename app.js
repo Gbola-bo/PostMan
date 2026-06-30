@@ -670,7 +670,7 @@ function renderResults(results) {
         const url = URL.createObjectURL(zipBlob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${currentTemplate?.name || 'postman-designs'}.zip`;
+        a.download = `${currentTemplate?.name || 'postmann-designs'}.zip`;
         document.body.appendChild(a);
         a.click();
         a.remove();
