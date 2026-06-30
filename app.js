@@ -1,4 +1,4 @@
-import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=2';
+import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=3';
 
 // ---------- DOM refs ----------
 const $ = (id) => document.getElementById(id);
@@ -120,20 +120,43 @@ async function openTemplate(template, { forceRebuild = false } = {}) {
   renderForm();
 }
 
+function toAspect(bounds) {
+  return { width: bounds.width, height: bounds.height, aspect: bounds.width / bounds.height };
+}
+
 function aspectInfoFor(artboardName) {
   const ab = (currentTemplate.metadata.artboards || []).find(
     (a) => a.name.toLowerCase() === artboardName.toLowerCase()
   );
   if (!ab) return null;
-  // "Image Placeholder" is the actual visible crop frame the template
-  // author drew for this slide - can be a different size/shape per slide
-  // (e.g. a smaller, near-square frame on a Middle slide vs. a full-bleed
-  // portrait frame on Cover). "Image" itself is just whatever bitmap gets
-  // replaced/clipped, and isn't necessarily the same shape as the visible
-  // window - using it for the crop aspect was the bug. Falls back to
-  // "Image" for templates that don't define a separate placeholder layer.
-  const placeholderEntry = (ab.childLayerNames || []).find((c) => c.name === 'Image Placeholder' && c.bounds);
-  const entry = placeholderEntry || (ab.childLayerNames || []).find((c) => c.name === 'Image' && c.bounds);
+  const layers = ab.childLayerNames || [];
+
+  // 1. Prefer an explicitly-named "Image Placeholder" layer when present.
+  const placeholderEntry = layers.find((c) => c.name === 'Image Placeholder' && c.bounds);
+  if (placeholderEntry) return toAspect(placeholderEntry.bounds);
+
+  // 2. Otherwise, mirror the SAME structural rule render-engine.js itself
+  // uses to find the real clip-mask shape: whatever layer sits
+  // immediately below "Image" at the same depth in the layer stack -
+  // regardless of what the template author named it. This is the actual
+  // visible crop window even when the "Image Placeholder" naming
+  // convention wasn't used for this template.
+  const imageIndex = layers.findIndex((c) => c.name === 'Image');
+  if (imageIndex >= 0) {
+    const imageDepth = layers[imageIndex].depth;
+    for (let i = imageIndex + 1; i < layers.length; i++) {
+      if (layers[i].depth < imageDepth) break; // walked back out of this nesting level without finding a sibling
+      if (layers[i].depth === imageDepth) {
+        if (layers[i].bounds) return toAspect(layers[i].bounds);
+        break; // found the structural sibling, but its bounds are unreadable - that's a different problem, don't keep scanning past it
+      }
+    }
+  }
+
+  // 3. Last resort: "Image"'s own bounds (e.g. no sibling layer exists
+  // at all below it - a flat, single-shape placeholder with no separate
+  // clip mask).
+  const entry = layers.find((c) => c.name === 'Image' && c.bounds);
   if (!entry) return null;
   return { width: entry.bounds.width, height: entry.bounds.height, aspect: entry.bounds.width / entry.bounds.height };
 }
