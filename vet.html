@@ -28,8 +28,11 @@
   <h1 class="page-title">Vet a template</h1>
   <p class="page-subtitle">
     Run this before adding any new .psd to the app. It checks the file
-    against the template spec and, if it passes, gives you the exact JSON
-    to paste into <code>templates/manifest.json</code>.
+    against the template spec and, if it passes, gives you the lightweight
+    index for <code>templates/manifest.json</code> plus a separate detail
+    file per template - keeping the dashboard fast to load no matter how
+    many templates you add, since it never has to download the heavy
+    per-layer data just to show a card.
   </p>
 
   <label class="field-label">PSD file</label>
@@ -39,10 +42,10 @@
   </div>
 
   <label class="field-label">Template ID (lowercase, no spaces - used as the JSON key and suggested filename)</label>
-  <input type="text" id="templateId" class="text-input" placeholder="e.g. play-street-carousel">
+  <input type="text" id="templateId" class="text-input" placeholder="e.g. real-estate-carousel">
 
   <label class="field-label">Display name</label>
-  <input type="text" id="templateName" class="text-input" placeholder="e.g. Play Street Carousel">
+  <input type="text" id="templateName" class="text-input" placeholder="e.g. Real Estate Carousel">
 
   <label class="field-label">Expected artboard names (comma-separated - e.g. "Cover,Middle,Last" for a carousel, or just "Cover" for a single-slide template)</label>
   <input type="text" id="artboardNames" class="text-input" placeholder="e.g. Cover,Middle,Last">
@@ -53,7 +56,10 @@
   <label class="field-label">
     Your current manifest.json contents (optional - paste it so the tool
     can hand you back the complete, correctly merged file. Leave empty if
-    this is your first template.)
+    this is your first template. If this is from before the split-file
+    update, it's fine if entries still have their old embedded metadata -
+    this will migrate them automatically and hand you a detail file for
+    each one.)
   </label>
   <textarea id="currentManifestInput" class="json-output" placeholder='{"templates": []}'></textarea>
 
@@ -93,20 +99,35 @@
 
   <div id="manifestBox" class="hidden" style="margin-top:18px;">
     <p style="font-size:13px; font-weight:600; margin-bottom:8px;">
-      Your complete, updated manifest.json - this is the whole file.
-      Copy it and use it to <strong>replace the entire contents</strong> of
-      <code>templates/manifest.json</code> (don't try to merge it by hand -
-      this already includes everything you pasted in above, plus this
-      template added or updated).
+      Your complete, updated manifest.json (the lightweight index - no
+      per-layer data in here, which is exactly what keeps the dashboard
+      fast). This is the whole file - use it to
+      <strong>replace the entire contents</strong> of
+      <code>templates/manifest.json</code>.
     </p>
     <textarea id="manifestOutput" class="json-output" readonly></textarea>
     <button type="button" id="copyManifestBtn" class="btn-secondary" style="margin-top:8px;">Copy to clipboard</button>
-    <p style="font-size:12px; color:var(--text-tertiary); margin-top:8px;">
+  </div>
+
+  <div id="detailFilesBox" class="hidden" style="margin-top:18px;">
+    <p style="font-size:13px; font-weight:600; margin-bottom:8px;">Detail files</p>
+    <p style="font-size:12px; color:var(--text-tertiary); margin-bottom:10px;">
+      One per template - this is the heavy per-layer data, loaded only
+      when someone actually opens that specific template, never upfront.
+      Save each one into <code>templates/details/</code> using the
+      filename shown.
+    </p>
+    <div id="detailFilesList"></div>
+  </div>
+
+  <div style="margin-top:18px;">
+    <p style="font-size:12px; color:var(--text-tertiary);">
       Also copy the actual <code>.psd</code> file into the <code>templates/</code>
-      folder (matching the JSON's <code>"file"</code> field), and every
-      downloaded preview image (the dashboard one above, plus all the
-      per-slide ones) into <code>templates/thumbnails/</code> - each named
-      to match its path in the JSON - then commit and push everything.
+      folder (matching the index's <code>"file"</code> field), and every
+      downloaded preview image (the dashboard one, plus all the per-slide
+      ones) into <code>templates/thumbnails/</code> - each named to match
+      its path in the index - then commit and push everything, including
+      the new <code>templates/details/*.json</code> files.
     </p>
   </div>
 
