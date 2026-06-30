@@ -1,5 +1,5 @@
 /**
- * PostMan Render Engine
+ * PostMann Render Engine
  * ======================
  * Drives a hidden Photopea iframe to load PSD templates, edit them per a
  * simple artboard convention, and export the results - with zero UI
@@ -401,7 +401,15 @@ function buildArtboardFinalizeImagePlacementScript(artboardName) {
       app.echoToOE("done");
       return;
     }
-    var ob = oldImg.bounds;
+    // Prefer "Image Placeholder" as the resize/position target when the
+    // template defines one - it's the actual visible crop frame the
+    // designer drew for this slide (can be smaller/differently-shaped
+    // than "Image" itself, which is just whatever sacrificial bitmap sits
+    // above it for clipping purposes). Falls back to "Image"'s own
+    // bounds for templates that don't use this layer convention.
+    var placeholderLayer = findLayerByName(group.layers, "Image Placeholder");
+    var targetBoundsSource = placeholderLayer || oldImg;
+    var ob = targetBoundsSource.bounds;
     var targetW = ob[2].value - ob[0].value, targetH = ob[3].value - ob[1].value;
     var targetCx = (ob[0].value + ob[2].value) / 2, targetCy = (ob[1].value + ob[3].value) / 2;
     var nb = newLayer.bounds;
@@ -479,7 +487,12 @@ function buildArtboardInsertFrameScript(artboardName, frameIndex, isLastFrame, c
       app.echoToOE("done");
       return;
     }
-    var ob = oldImg.bounds;
+    // See buildArtboardFinalizeImagePlacementScript for why "Image
+    // Placeholder" (when present) is preferred over "Image" itself as
+    // the resize/position target - same reasoning applies per-frame here.
+    var placeholderLayer = findLayerByName(group.layers, "Image Placeholder");
+    var targetBoundsSource = placeholderLayer || oldImg;
+    var ob = targetBoundsSource.bounds;
     var targetW = ob[2].value - ob[0].value, targetH = ob[3].value - ob[1].value;
     var targetCx = (ob[0].value + ob[2].value) / 2, targetCy = (ob[1].value + ob[3].value) / 2;
     var nb = newLayer.bounds;
@@ -868,14 +881,20 @@ export class PostManRenderEngine {
         hadBoundsTimingSymptom = true;
         this._progress(`${ab.name}: could not read this artboard's own bounds yet${ab.boundsError ? ' - ' + ab.boundsError : ''}.`, 'err');
       }
+      // Prefer "Image Placeholder" (the actual visible crop frame) over
+      // "Image" (just the sacrificial bitmap clipped to it) - matches the
+      // same preference applied in the real resize/position scripts.
+      const allNamedPlaceholder = (ab.childLayerNames || []).filter((c) => c.name === 'Image Placeholder');
       const allNamedImage = (ab.childLayerNames || []).filter((c) => c.name === 'Image');
-      const withBounds = allNamedImage.find((c) => c.bounds);
+      const placeholderWithBounds = allNamedPlaceholder.find((c) => c.bounds);
+      const withBounds = placeholderWithBounds || allNamedImage.find((c) => c.bounds);
+      const sourceLabel = placeholderWithBounds ? 'Image Placeholder' : 'Image';
       if (withBounds) {
         this.artboardImageBounds[ab.name.toLowerCase()] = {
           width: withBounds.bounds.width, height: withBounds.bounds.height,
           aspect: withBounds.bounds.width / withBounds.bounds.height,
         };
-        this._progress(`${ab.name}: Image placeholder = ${withBounds.bounds.width.toFixed(0)}x${withBounds.bounds.height.toFixed(0)} (${(withBounds.bounds.width / withBounds.bounds.height).toFixed(2)}:1)`, 'ok');
+        this._progress(`${ab.name}: ${sourceLabel} = ${withBounds.bounds.width.toFixed(0)}x${withBounds.bounds.height.toFixed(0)} (${(withBounds.bounds.width / withBounds.bounds.height).toFixed(2)}:1)`, 'ok');
       } else if (allNamedImage.length) {
         hadBoundsTimingSymptom = true;
         const errs = allNamedImage.map((c) => c.boundsError).filter(Boolean);
@@ -918,6 +937,13 @@ export class PostManRenderEngine {
       if (imageEntries.length > 1) issues.push(`"${expected}" has more than one layer named "Image" - lookups will use the first match, which is ambiguous.`);
       if (imageEntries.length === 1 && !imageEntries[0].bounds) issues.push(`"${expected}" has a layer named "Image" but its bounds could not be read: ${imageEntries[0].boundsError || 'no specific error'}.`);
       if (imageEntries.length === 0) notes.push(`"${expected}" has no layer named "Image" - fine for a text-only slide.`);
+
+      const placeholderEntries = (ab.childLayerNames || []).filter((c) => c.name === 'Image Placeholder');
+      if (placeholderEntries.length > 1) issues.push(`"${expected}" has more than one layer named "Image Placeholder" - lookups will use the first match, which is ambiguous.`);
+      if (placeholderEntries.length === 1 && !placeholderEntries[0].bounds) issues.push(`"${expected}" has a layer named "Image Placeholder" but its bounds could not be read: ${placeholderEntries[0].boundsError || 'no specific error'}.`);
+      if (placeholderEntries.length === 1 && imageEntries.length === 1) {
+        notes.push(`"${expected}" has both "Image" and "Image Placeholder" - the crop tool and the final photo placement will both use "Image Placeholder"'s frame (${placeholderEntries[0].bounds ? placeholderEntries[0].bounds.width.toFixed(0) + 'x' + placeholderEntries[0].bounds.height.toFixed(0) : 'bounds unreadable'}), not "Image"'s own bounds.`);
+      }
     }
 
     // Overlap check across ALL detected top-level groups (not just expected
