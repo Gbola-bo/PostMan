@@ -17,6 +17,7 @@ let manifest = null;
 let currentTemplate = null;
 const cropRects = new Map(); // keyed by slide key ('cover', 'middle-0', ...)
 let middleCount = 1;
+let currentPageIndex = 0;
 
 // ---------- Load manifest, render dashboard ----------
 async function loadManifest() {
@@ -65,7 +66,7 @@ function openTemplate(template, { forceRebuild = false } = {}) {
   }
   const isSameTemplate = currentTemplate && currentTemplate.id === template.id;
   currentTemplate = template;
-  if (forceRebuild || !isSameTemplate || !$('formSlides').children.length) {
+  if (forceRebuild || !isSameTemplate || !$('formPagesTrack').children.length) {
     cropRects.clear();
     middleCount = 1;
     $('formTemplateName').textContent = template.name;
@@ -83,59 +84,71 @@ function aspectInfoFor(artboardName) {
   return { width: imgEntry.bounds.width, height: imgEntry.bounds.height, aspect: imgEntry.bounds.width / imgEntry.bounds.height };
 }
 
-function renderForm() {
-  const container = $('formSlides');
-  container.innerHTML = '';
-  const repeatable = currentTemplate.repeatable;
+// Looks up this artboard's actual default-state preview, generated and
+// saved by the vetting tool. Optional field - older manifest entries
+// (vetted before this feature existed) simply won't have it, and the
+// page falls back to a plain gradient placeholder instead of breaking.
+function previewUrlFor(artboardName) {
+  return (currentTemplate.artboardPreviews && currentTemplate.artboardPreviews[artboardName.toLowerCase()]) || null;
+}
 
+function buildPageList() {
+  const repeatable = currentTemplate.repeatable;
+  const list = [];
   currentTemplate.artboards.forEach((artboardName) => {
     if (repeatable && artboardName.toLowerCase() === repeatable.toLowerCase()) {
-      container.appendChild(buildRepeatableSection(artboardName));
+      for (let i = 0; i < middleCount; i++) {
+        list.push({ artboardName, key: `middle-${i}`, label: `${artboardName} #${i + 1}` });
+      }
     } else {
-      container.appendChild(buildSlideCard(artboardName, artboardName.toLowerCase(), 1));
+      list.push({ artboardName, key: artboardName.toLowerCase(), label: artboardName });
     }
   });
+  return list;
 }
 
-function buildRepeatableSection(artboardName) {
-  const wrap = document.createElement('div');
-  wrap.innerHTML = `
-    <div class="middle-count-row">
-      <label class="field-label" style="margin:0;">How many ${escapeHtml(artboardName)} slides?</label>
-      <input type="number" id="middleCountInput" class="text-input" min="1" max="20" value="${middleCount}">
-    </div>
-    <div id="middleSlidesContainer"></div>
-  `;
-  const countInput = wrap.querySelector('#middleCountInput');
-  const slidesContainer = wrap.querySelector('#middleSlidesContainer');
+function renderForm() {
+  const track = $('formPagesTrack');
+  track.innerHTML = '';
+  currentPageIndex = 0;
+  const repeatable = currentTemplate.repeatable;
 
-  function renderSlides() {
-    slidesContainer.innerHTML = '';
-    for (let i = 0; i < middleCount; i++) {
-      slidesContainer.appendChild(buildSlideCard(artboardName, `middle-${i}`, i + 1));
-    }
+  $('middleCountRow').classList.toggle('hidden', !repeatable);
+  if (repeatable) {
+    $('middleCountLabel').textContent = `How many ${repeatable} slides?`;
+    $('middleCountInput').value = middleCount;
   }
-  countInput.addEventListener('change', () => {
-    let n = parseInt(countInput.value, 10);
-    if (!n || n < 1) n = 1;
-    if (n > 20) n = 20;
-    countInput.value = n;
-    middleCount = n;
-    renderSlides();
+
+  buildPageList().forEach(({ artboardName, key, label }) => {
+    track.appendChild(buildFormPage(artboardName, key, label));
   });
-  renderSlides();
-  return wrap;
+  setupCarouselNav();
 }
 
-function buildSlideCard(artboardName, key, displayIndex) {
+function buildFormPage(artboardName, key, label) {
+  const page = document.createElement('div');
+  page.className = 'form-page';
+  page.dataset.key = key;
+
+  const previewUrl = previewUrlFor(artboardName);
+  const preview = document.createElement('div');
+  preview.className = `form-page-preview ${previewUrl ? '' : 'brand-gradient'}`;
+  preview.innerHTML = `
+    ${previewUrl ? `<img src="${previewUrl}" alt="">` : ''}
+    <div class="form-page-label"><span>${escapeHtml(label)}</span></div>
+  `;
+  page.appendChild(preview);
+  page.appendChild(buildSlideFields(artboardName, key));
+  return page;
+}
+
+function buildSlideFields(artboardName, key) {
   const card = document.createElement('div');
   card.className = 'slide-card';
   card.dataset.key = key;
   card.dataset.artboard = artboardName;
-  const label = key.startsWith('middle') ? `${artboardName} #${displayIndex}` : artboardName;
   card.innerHTML = `
-    <div class="slide-card-title">${escapeHtml(label)}</div>
-    <label class="field-label">Headline text</label>
+    <label class="field-label" style="margin-top:0;">Headline text</label>
     <input type="text" class="text-input field-headline" placeholder="Leave blank to skip">
     <label class="field-label">Attachment type</label>
     <select class="select-input field-type">
@@ -189,6 +202,92 @@ function buildSlideCard(artboardName, key, displayIndex) {
   });
 
   return card;
+}
+
+// ---------- Carousel navigation ----------
+function setupCarouselNav() {
+  const track = $('formPagesTrack');
+  const pages = Array.from(track.children);
+  const dotsEl = $('carouselDots');
+  dotsEl.innerHTML = '';
+  pages.forEach((_, i) => {
+    const dot = document.createElement('span');
+    dot.className = 'carousel-dot';
+    dot.addEventListener('click', () => goToPage(i));
+    dotsEl.appendChild(dot);
+  });
+  const showNav = pages.length > 1;
+  $('carouselPrevBtn').classList.toggle('hidden', !showNav);
+  $('carouselNextBtn').classList.toggle('hidden', !showNav);
+  dotsEl.classList.toggle('hidden', !showNav);
+  goToPage(Math.min(currentPageIndex, Math.max(0, pages.length - 1)));
+}
+
+function goToPage(index) {
+  const pages = Array.from($('formPagesTrack').children);
+  if (!pages.length) return;
+  currentPageIndex = Math.max(0, Math.min(index, pages.length - 1));
+  pages.forEach((p, i) => p.classList.toggle('active', i === currentPageIndex));
+  Array.from($('carouselDots').children).forEach((d, i) => d.classList.toggle('active', i === currentPageIndex));
+  $('carouselPrevBtn').disabled = currentPageIndex === 0;
+  $('carouselNextBtn').disabled = currentPageIndex === pages.length - 1;
+}
+
+$('carouselPrevBtn').addEventListener('click', () => goToPage(currentPageIndex - 1));
+$('carouselNextBtn').addEventListener('click', () => goToPage(currentPageIndex + 1));
+
+// Swipe gesture, scoped specifically to the preview-image area (not the
+// whole page) so dragging a finger across a text field or select while
+// typing/scrolling never gets mistaken for a swipe.
+(() => {
+  let touchStartX = null;
+  const track = $('formPagesTrack');
+  track.addEventListener('touchstart', (e) => {
+    if (!e.target.closest('.form-page-preview')) { touchStartX = null; return; }
+    touchStartX = e.touches[0].clientX;
+  }, { passive: true });
+  track.addEventListener('touchend', (e) => {
+    if (touchStartX === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 40) goToPage(currentPageIndex + (dx < 0 ? 1 : -1));
+    touchStartX = null;
+  });
+})();
+
+$('middleCountInput').addEventListener('change', () => {
+  let n = parseInt($('middleCountInput').value, 10);
+  if (!n || n < 1) n = 1;
+  if (n > 20) n = 20;
+  $('middleCountInput').value = n;
+  updateMiddleCount(n);
+});
+
+// Targeted add/remove at the tail of the repeatable block, instead of
+// rebuilding every middle page from scratch - so increasing or decreasing
+// the count never wipes out text/photos already entered on slides that
+// still exist after the change.
+function updateMiddleCount(newCount) {
+  const track = $('formPagesTrack');
+  const repeatable = currentTemplate.repeatable;
+  const repeatableArtboardName = currentTemplate.artboards.find((a) => a.toLowerCase() === repeatable.toLowerCase());
+  const existingMiddlePages = Array.from(track.querySelectorAll('.form-page')).filter((p) => p.dataset.key.startsWith('middle-'));
+  const oldCount = existingMiddlePages.length;
+
+  if (newCount > oldCount) {
+    const insertBeforeNode = oldCount ? existingMiddlePages[oldCount - 1].nextSibling : null;
+    for (let i = oldCount; i < newCount; i++) {
+      const page = buildFormPage(repeatableArtboardName, `middle-${i}`, `${repeatableArtboardName} #${i + 1}`);
+      if (insertBeforeNode) track.insertBefore(page, insertBeforeNode);
+      else track.appendChild(page);
+    }
+  } else if (newCount < oldCount) {
+    for (let i = oldCount - 1; i >= newCount; i--) {
+      cropRects.delete(existingMiddlePages[i].dataset.key);
+      existingMiddlePages[i].remove();
+    }
+  }
+  middleCount = newCount;
+  setupCarouselNav();
 }
 
 async function promptCrop(key, file, attachmentType, aspect, cropEditLink) {
@@ -449,7 +548,7 @@ async function cropDataUrlIfNeeded(key, dataUrl, attachmentType) {
 }
 
 async function collectJobs() {
-  const cards = Array.from($('formSlides').querySelectorAll('.slide-card'));
+  const cards = Array.from($('formPagesTrack').querySelectorAll('.slide-card'));
   const jobs = [];
   for (const card of cards) {
     const key = card.dataset.key;
