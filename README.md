@@ -95,6 +95,31 @@ benefit for that one entry until it's re-vetted with the current tool.
 `TEMPLATE_SPEC.md` has the full rules a `.psd` needs to follow for any of
 this to work.
 
+## A note on caching `app.js`, `vet.js`, and `render-engine.js`
+
+These are loaded via plain `<script src="...">` tags and a static `import`
+inside the JS itself - both of which browsers and GitHub Pages' CDN are
+free to cache aggressively, with no automatic way to know a new version
+exists. That previously caused a real bug: a fix shipped and deployed
+correctly, but kept appearing not to work because a stale cached copy of
+the script was still being served.
+
+The fix is the `?v=2` query string already on these references:
+```html
+<script type="module" src="app.js?v=2"></script>
+```
+```js
+import { ... } from './render-engine.js?v=2';
+```
+
+**Whenever any of these three files change, bump the version number in
+every place it appears** - the `<script src>` tag in `app.html`/`vet.html`,
+*and* the matching `import` statement inside `app.js`/`vet.js` (both need
+the same number, since they reference the same file and the import isn't
+automatically tied to the script tag's version). Forgetting this is the
+single most likely reason a real fix would appear to "not be deployed"
+when it actually is.
+
 ## Running it locally before you push
 
 Opening `index.html` directly as a `file://` URL won't work - `fetch()`
