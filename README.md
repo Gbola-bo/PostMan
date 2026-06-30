@@ -1,4 +1,4 @@
-# PostMan (static version)
+# PostMann (static version)
 
 The simplified rebuild: no backend, no build step, no npm. Just static
 files - HTML, CSS, JS, and your `.psd` templates - all in this one repo,
