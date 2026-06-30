@@ -44,8 +44,8 @@ doesn't crop at the pixel level.
 
 ### Inside each artboard
 
-Two layer names are load-bearing - the engine finds them by exact name, not
-by guessing:
+Three layer names are load-bearing - the engine finds them by exact name,
+not by guessing:
 
 - **`headline text`** (lowercase, exact spelling) - a text layer, if this
   slide should have editable text. Not required; a slide can have no text.
@@ -53,18 +53,30 @@ by guessing:
   this slide should have a photo placeholder. **Not required.** A text-only
   slide (a closing CTA slide, for example) legitimately has no `Image`
   layer at all, and the engine treats that as normal, not an error.
+- **`Image Placeholder`** (capital I, capital P) - **optional, but
+  recommended whenever you include an `Image` layer.** This is the shape
+  that defines the actual visible crop window for this specific slide -
+  the frame the end user's photo gets fitted and cropped into. It's
+  allowed to be a different size and shape per artboard (a tall portrait
+  frame on Cover, a near-square frame on a Middle slide, etc.) - that's
+  the whole point of having it as its own layer rather than reusing
+  `Image`'s own bounds everywhere.
 
-If you do include an `Image` layer, **clip it to the shape that defines the
-visible crop region**, the same way you'd clip any photo into a frame in
-Photoshop. That underlying shape can be named anything - the engine finds it
-by its position in the layer stack (directly below `Image`), not by name. The
-engine resizes and re-clips whatever photo goes in to match this layer's
-current size and position, so make sure `Image`'s bounds in the original PSD
-already match where you want photos to appear.
+**If `Image Placeholder` is present, it - not `Image` - determines both the
+crop tool's aspect ratio shown to the user AND the actual size/position the
+final photo gets resized and placed into.** `Image` itself just needs to be
+clipped to whatever frame shape sits below it in the layer stack (the same
+"Create Clipping Mask" pattern you'd use for any photo-in-a-frame in
+Photoshop) - its own bounds stop mattering once a separate placeholder
+exists. If you don't include an `Image Placeholder` layer at all, the engine
+falls back to using `Image`'s own bounds for both purposes, exactly as
+before - existing templates built before this convention existed keep
+working unchanged.
 
 **Don't duplicate these names within one artboard.** If an artboard has two
-layers both named `Image`, lookups use the first match found, and the result
-is ambiguous - not necessarily wrong, but not something you control. It's
+layers both named `Image` (or two named `Image Placeholder`), lookups use
+the first match found, and the result is ambiguous - not necessarily wrong,
+but not something you control. It's
 completely fine and expected for `headline text` and `Image` to repeat
 *across* different artboards (Cover and Middle can each have their own) -
 each artboard's content is looked up scoped to that artboard, so there's no
@@ -124,6 +136,10 @@ a mistake.
 - `headline text` for editable text (optional, exact name).
 - `Image`, clipped to a shape directly below it, for a photo placeholder
   (optional, exact name).
-- At most one `headline text` and one `Image` per artboard.
+- `Image Placeholder` (optional, exact name) - if present, defines the
+  actual crop frame for this slide instead of `Image`'s own bounds. Can
+  differ in size/shape per artboard.
+- At most one `headline text`, one `Image`, and one `Image Placeholder`
+  per artboard.
 - Run vetting before publishing. Fix what it flags as an issue; read what it
   flags as a note, and confirm it matches your intent.
