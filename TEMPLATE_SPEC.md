@@ -1,6 +1,6 @@
-# PostMan Template Spec
+# PostMann Template Spec
 
-This is what a `.psd` file needs to look like for PostMan's rendering engine
+This is what a `.psd` file needs to look like for PostMann's rendering engine
 to work with it. Every rule here exists because of something we actually hit
 while building and testing the pipeline - not theoretical caution.
 
