@@ -1,0 +1,72 @@
+{
+  "templates": [
+    {
+      "id": "playstreetgist",
+      "name": "PlayStreet-GIST",
+      "file": "templates/playstreetgist.psd",
+      "thumbnail": "templates/thumbnails/playstreetgist.png",
+      "artboards": [
+        "Cover",
+        "Middle",
+        "Last"
+      ],
+      "repeatable": "Middle",
+      "artboardPreviews": {
+        "cover": "templates/thumbnails/playstreetgist-cover.png",
+        "middle": "templates/thumbnails/playstreetgist-middle.png",
+        "last": "templates/thumbnails/playstreetgist-last.png"
+      },
+      "vettedAt": "2026-06-30T03:23:11.407Z"
+    },
+    {
+      "id": "playstreetstory",
+      "name": "PlayStreet-Story",
+      "file": "templates/playstreetstory.psd",
+      "thumbnail": "templates/thumbnails/playstreetstory.png",
+      "artboards": [
+        "Cover",
+        "Middle",
+        "Last"
+      ],
+      "repeatable": "Middle",
+      "artboardPreviews": {
+        "cover": "templates/thumbnails/playstreetstory-cover.png",
+        "middle": "templates/thumbnails/playstreetstory-middle.png",
+        "last": "templates/thumbnails/playstreetstory-last.png"
+      },
+      "vettedAt": "2026-06-30T06:18:41.923Z"
+    },
+    {
+      "id": "playstreetsportwritten",
+      "name": "PlayStreet Sport (M-text)",
+      "file": "templates/playstreetsportwritten.psd",
+      "thumbnail": "templates/thumbnails/playstreetsportwritten.png",
+      "artboards": [
+        "Cover",
+        "Middle",
+        "Last"
+      ],
+      "repeatable": "Middle",
+      "artboardPreviews": {
+        "cover": "templates/thumbnails/playstreetsportwritten-cover.png",
+        "middle": "templates/thumbnails/playstreetsportwritten-middle.png",
+        "last": "templates/thumbnails/playstreetsportwritten-last.png"
+      },
+      "vettedAt": "2026-06-30T12:12:22.425Z"
+    },
+    {
+      "id": "singletemplate",
+      "name": "Single Template (Meme)",
+      "file": "templates/singletemplate.psd",
+      "thumbnail": "templates/thumbnails/singletemplate.png",
+      "artboards": [
+        "Cover"
+      ],
+      "repeatable": null,
+      "artboardPreviews": {
+        "cover": "templates/thumbnails/singletemplate-cover.png"
+      },
+      "vettedAt": "2026-06-30T19:32:14.875Z"
+    }
+  ]
+}
