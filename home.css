@@ -1,0 +1,95 @@
+/* Homepage - loaded alongside styles.css, which still provides the
+   shared design tokens (--brand-*, --surface-*, font-face, etc). This
+   file only adds the layout specific to this one page. */
+
+.home-body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--surface-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.home-stage {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  min-height: 88dvh;
+  margin: 0 auto;
+}
+
+/* ===== Scattered pill tags =====
+   Positioned by percentage so the scattered, "thrown there" feel holds up
+   across phone sizes without being pixel-locked to one exact viewport. */
+.home-pill {
+  position: absolute;
+  background: var(--brand-100);
+  color: var(--brand-800);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 20px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.home-pill-1 { top: 21%; left: 13%; transform: rotate(-13deg); }
+.home-pill-2 { top: 27%; left: 35%; transform: rotate(-7deg); }
+.home-pill-3 { top: 20%; left: 62%; transform: rotate(11deg); }
+.home-pill-4 { top: 56%; left: 11%; transform: rotate(-10deg); }
+.home-pill-5 { top: 56%; left: 70%; transform: rotate(8deg); }
+.home-pill-6 { top: 60%; left: 41%; transform: rotate(-4deg); }
+
+.home-cursor {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+}
+.home-cursor-1 { top: 24.5%; left: 65%; transform: rotate(8deg); }
+.home-cursor-2 { top: 58%; left: 13%; transform: rotate(-4deg); }
+
+/* ===== The real logo artwork, centered ===== */
+.home-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 78%;
+  max-width: 340px;
+  height: auto;
+}
+
+/* ===== Get Started / Template tool ===== */
+.home-actions {
+  position: absolute;
+  bottom: 6%;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.home-action-link {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 10px 24px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-md);
+}
+.home-action-link:active { background: var(--surface-tertiary); }
+.home-action-secondary {
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* On wider screens, ease off the edge-hugging percentages slightly so
+   the pills don't end up absurdly far from the logo - the phone-shaped
+   reference was designed for a narrow column, not a wide desktop window. */
+@media (min-width: 600px) {
+  .home-stage { min-height: 760px; }
+}
