@@ -26,10 +26,24 @@
   <div class="home-pill home-pill-6">.PNG</div>
 
   <div class="home-actions">
-    <a href="app.html" class="home-action-link">Get Started</a>
-    <a href="vet.html" class="home-action-link home-action-secondary">Template tool</a>
+    <a href="app.html" class="home-action-link" id="getStartedLink">Get Started</a>
+    <a href="vet.html" class="home-action-link home-action-secondary" id="templateToolLink">Template tool</a>
   </div>
 </div>
 
+<script>
+  // Plays a clean swipe-up-and-fade exit before navigating, instead of
+  // the page just jumping. Applied to both links so the experience feels
+  // consistent regardless of which one is tapped.
+  const EXIT_MS = 420;
+  const stage = document.querySelector('.home-stage');
+  function navigateWithExit(e, href) {
+    e.preventDefault();
+    stage.classList.add('is-leaving');
+    setTimeout(() => { window.location.href = href; }, EXIT_MS);
+  }
+  document.getElementById('getStartedLink').addEventListener('click', (e) => navigateWithExit(e, 'app.html'));
+  document.getElementById('templateToolLink').addEventListener('click', (e) => navigateWithExit(e, 'vet.html'));
+</script>
 </body>
 </html>
