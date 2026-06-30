@@ -79,9 +79,18 @@ function aspectInfoFor(artboardName) {
   const ab = (currentTemplate.metadata.artboards || []).find(
     (a) => a.name.toLowerCase() === artboardName.toLowerCase()
   );
-  const imgEntry = ab && (ab.childLayerNames || []).find((c) => c.name === 'Image' && c.bounds);
-  if (!imgEntry) return null;
-  return { width: imgEntry.bounds.width, height: imgEntry.bounds.height, aspect: imgEntry.bounds.width / imgEntry.bounds.height };
+  if (!ab) return null;
+  // "Image Placeholder" is the actual visible crop frame the template
+  // author drew for this slide - can be a different size/shape per slide
+  // (e.g. a smaller, near-square frame on a Middle slide vs. a full-bleed
+  // portrait frame on Cover). "Image" itself is just whatever bitmap gets
+  // replaced/clipped, and isn't necessarily the same shape as the visible
+  // window - using it for the crop aspect was the bug. Falls back to
+  // "Image" for templates that don't define a separate placeholder layer.
+  const placeholderEntry = (ab.childLayerNames || []).find((c) => c.name === 'Image Placeholder' && c.bounds);
+  const entry = placeholderEntry || (ab.childLayerNames || []).find((c) => c.name === 'Image' && c.bounds);
+  if (!entry) return null;
+  return { width: entry.bounds.width, height: entry.bounds.height, aspect: entry.bounds.width / entry.bounds.height };
 }
 
 // Looks up this artboard's actual default-state preview, generated and
