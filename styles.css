@@ -90,8 +90,8 @@ img { max-width: 100%; display: block; }
   top: 0;
   z-index: 30;
 }
-.topbar .logo { width: 26px; height: 26px; flex-shrink: 0; }
-.topbar .brand-name { font-weight: 600; font-size: 15px; }
+.topbar-logo-link { display: flex; align-items: center; }
+.topbar-logo { height: 30px; width: auto; display: block; }
 .topbar .spacer { flex: 1; }
 .topbar .btn-text-link { font-size: 13px; color: var(--text-secondary); }
 
