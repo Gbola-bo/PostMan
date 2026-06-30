@@ -1,5 +1,51 @@
 import { PostManRenderEngine } from './render-engine.js';
 
+// Splits a manifest into a lightweight index (everything the dashboard
+// needs to render cards - no metadata) plus one detail-file payload per
+// template (the heavy layer-tree metadata, saved separately so the
+// dashboard never has to download it just to show a card). Also migrates
+// any OLD-FORMAT entries still carrying embedded metadata inline - so
+// running this once against an existing manifest.json cleans up every
+// template in it, not just the one being actively re-vetted.
+function buildSplitManifest(currentManifestRaw, newEntryWithMetadata) {
+  let manifest = { templates: [] };
+  let parseError = null;
+  if (currentManifestRaw) {
+    try {
+      manifest = JSON.parse(currentManifestRaw);
+      if (!manifest.templates || !Array.isArray(manifest.templates)) {
+        throw new Error('Valid JSON, but no "templates" array found at the top level - is this really your manifest.json?');
+      }
+    } catch (e) {
+      parseError = e.message;
+      manifest = { templates: [] };
+    }
+  }
+
+  const detailFiles = [];
+  manifest.templates = manifest.templates.map((t) => {
+    if (t && t.metadata) {
+      detailFiles.push({ id: t.id, metadata: t.metadata });
+      const { metadata, ...rest } = t;
+      return rest;
+    }
+    return t;
+  });
+
+  const { metadata, ...indexEntry } = newEntryWithMetadata;
+  const existingIndex = manifest.templates.findIndex((t) => t.id === indexEntry.id);
+  if (existingIndex >= 0) manifest.templates[existingIndex] = indexEntry;
+  else manifest.templates.push(indexEntry);
+  detailFiles.push({ id: indexEntry.id, metadata });
+
+  // De-dupe by id, keeping the LAST occurrence - the freshly-vetted
+  // result wins over a same-id entry pulled from migration.
+  const seen = new Map();
+  for (const d of detailFiles) seen.set(d.id, d);
+
+  return { manifest, detailFiles: Array.from(seen.values()), parseError };
+}
+
 const $ = (id) => document.getElementById(id);
 const psdFileInput = $('psdFile');
 const runVetBtn = $('runVetBtn');
@@ -105,6 +151,7 @@ runVetBtn.addEventListener('click', async () => {
   $('reportBox').classList.add('hidden');
   $('thumbnailBox').classList.add('hidden');
   $('manifestBox').classList.add('hidden');
+  $('detailFilesBox').classList.add('hidden');
   customThumbnailFile.value = '';
   $('customThumbnailName').textContent = '';
 
@@ -175,29 +222,17 @@ runVetBtn.addEventListener('click', async () => {
       };
 
       const currentManifestRaw = $('currentManifestInput').value.trim();
-      let manifest = { templates: [] };
-      if (currentManifestRaw) {
-        try {
-          manifest = JSON.parse(currentManifestRaw);
-          if (!manifest.templates || !Array.isArray(manifest.templates)) {
-            throw new Error('Valid JSON, but no "templates" array found at the top level - is this really your manifest.json?');
-          }
-        } catch (e) {
-          logStatus(`Could not parse the manifest you pasted in - ${e.message}. Starting fresh with just this one template instead; you'll need to re-add any others by hand, or fix the pasted JSON and try again.`, 'err');
-          manifest = { templates: [] };
-        }
+      const { manifest, detailFiles, parseError } = buildSplitManifest(currentManifestRaw, manifestEntry);
+      if (parseError) {
+        logStatus(`Could not parse the manifest you pasted in - ${parseError}. Starting fresh with just this one template instead; you'll need to re-add any others by hand, or fix the pasted JSON and try again.`, 'err');
       }
-
-      const existingIndex = manifest.templates.findIndex((t) => t.id === templateId);
-      if (existingIndex >= 0) {
-        manifest.templates[existingIndex] = manifestEntry;
-        logStatus(`Updated the existing "${templateId}" entry in place.`, 'info');
-      } else {
-        manifest.templates.push(manifestEntry);
+      if (detailFiles.length > 1) {
+        logStatus(`Also migrated ${detailFiles.length - 1} existing template(s) that still had their metadata embedded inline - each now gets its own detail file below, same as this one.`, 'info');
       }
 
       $('manifestOutput').value = JSON.stringify(manifest, null, 2);
       $('manifestBox').classList.remove('hidden');
+      renderDetailFileLinks(detailFiles);
     }
   } catch (e) {
     logStatus(`Vetting failed unexpectedly: ${e.message || e}`, 'err');
@@ -206,6 +241,26 @@ runVetBtn.addEventListener('click', async () => {
     runVetBtn.disabled = false;
   }
 });
+
+function renderDetailFileLinks(detailFiles) {
+  const box = $('detailFilesBox');
+  const list = $('detailFilesList');
+  list.innerHTML = '';
+  detailFiles.forEach(({ id, metadata }) => {
+    const blob = new Blob([JSON.stringify({ metadata }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const row = document.createElement('div');
+    row.className = 'file-row';
+    row.style.marginBottom = '8px';
+    row.innerHTML = `
+      <a href="${url}" download="${id}.json" class="btn-secondary" style="font-size:12px; padding:7px 12px;">
+        Download templates/details/${id}.json
+      </a>
+    `;
+    list.appendChild(row);
+  });
+  box.classList.remove('hidden');
+}
 
 function showReport(report) {
   const box = $('reportBox');
