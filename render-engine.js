@@ -401,13 +401,25 @@ function buildArtboardFinalizeImagePlacementScript(artboardName) {
       app.echoToOE("done");
       return;
     }
-    // Prefer "Image Placeholder" as the resize/position target when the
-    // template defines one - it's the actual visible crop frame the
-    // designer drew for this slide (can be smaller/differently-shaped
-    // than "Image" itself, which is just whatever sacrificial bitmap sits
-    // above it for clipping purposes). Falls back to "Image"'s own
-    // bounds for templates that don't use this layer convention.
+    // Prefer an explicitly-named "Image Placeholder" layer when present.
+    // Otherwise, fall back to whatever layer sits immediately below
+    // "Image" in this group's stack - the actual shape "Image" is
+    // clipped to once grouped=true is set below, regardless of what the
+    // template author happened to name it. This matters because "Image"
+    // itself is often deliberately oversized (bleed margin, safe area)
+    // relative to the real visible window, so using its own bounds as
+    // the resize target - when neither of the above is found - can
+    // produce a crop frame noticeably larger than what's actually shown.
     var placeholderLayer = findLayerByName(group.layers, "Image Placeholder");
+    if (!placeholderLayer) {
+      var imgIndexForTarget = -1;
+      for (var ti = 0; ti < group.layers.length; ti++) {
+        if (group.layers[ti].name === oldImg.name) { imgIndexForTarget = ti; break; }
+      }
+      if (imgIndexForTarget >= 0 && imgIndexForTarget + 1 < group.layers.length) {
+        placeholderLayer = group.layers[imgIndexForTarget + 1];
+      }
+    }
     var targetBoundsSource = placeholderLayer || oldImg;
     var ob = targetBoundsSource.bounds;
     var targetW = ob[2].value - ob[0].value, targetH = ob[3].value - ob[1].value;
@@ -487,11 +499,14 @@ function buildArtboardInsertFrameScript(artboardName, frameIndex, isLastFrame, c
       app.echoToOE("done");
       return;
     }
-    // See buildArtboardFinalizeImagePlacementScript for why "Image
-    // Placeholder" (when present) is preferred over "Image" itself as
-    // the resize/position target - same reasoning applies per-frame here.
+    // Prefer an explicitly-named "Image Placeholder" layer when present;
+    // otherwise fall back to clipBase itself - the same structurally-
+    // derived shape already used for the actual clip relationship above,
+    // regardless of what it's named. Using "Image"'s own bounds as a last
+    // resort only matters if clipBase couldn't be determined at all,
+    // which the earlier check already ruled out.
     var placeholderLayer = findLayerByName(group.layers, "Image Placeholder");
-    var targetBoundsSource = placeholderLayer || oldImg;
+    var targetBoundsSource = placeholderLayer || clipBase || oldImg;
     var ob = targetBoundsSource.bounds;
     var targetW = ob[2].value - ob[0].value, targetH = ob[3].value - ob[1].value;
     var targetCx = (ob[0].value + ob[2].value) / 2, targetCy = (ob[1].value + ob[3].value) / 2;
