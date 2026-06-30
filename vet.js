@@ -66,6 +66,27 @@ function setThumbnailPreview(blob) {
   $('thumbnailBox').classList.remove('hidden');
 }
 
+function renderPreviewGallery(previews) {
+  // previews: [{ artboardName, blob }]
+  const gallery = $('previewGallery');
+  gallery.innerHTML = '';
+  previews.forEach(({ artboardName, blob }) => {
+    const url = URL.createObjectURL(blob);
+    const item = document.createElement('div');
+    item.style.textAlign = 'center';
+    item.innerHTML = `
+      <img src="${url}" alt="${escapeHtmlAttr(artboardName)}" style="max-width:140px; border:1px solid var(--border-default); border-radius:var(--radius-md); display:block; margin:0 auto 6px;">
+      <div style="font-size:11px; font-weight:600; margin-bottom:4px;">${escapeHtmlAttr(artboardName)}</div>
+      <a href="${url}" download="${activeTemplateId}-${artboardName.toLowerCase()}.png" style="font-size:11px; color:var(--brand-600); font-weight:600;">Download</a>
+    `;
+    gallery.appendChild(item);
+  });
+  $('previewGalleryBox').classList.remove('hidden');
+}
+function escapeHtmlAttr(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 customThumbnailFile.addEventListener('change', () => {
   const file = customThumbnailFile.files[0];
   if (!file) {
@@ -116,18 +137,28 @@ runVetBtn.addEventListener('click', async () => {
     showReport(report);
 
     let thumbnailGenerated = false;
+    let artboardPreviews = {};
     if (report.passed && expectedArtboards.length) {
-      try {
-        logStatus(`Generating a dashboard preview from "${expectedArtboards[0]}"...`, 'info');
-        const { blob } = await engine.exportArtboardPNG(expectedArtboards[0]);
-        const thumbBlob = await downscaleToThumbnail(blob);
-        autoThumbnailUrl = thumbBlob;
-        setThumbnailPreview(thumbBlob);
-        thumbnailGenerated = true;
-      } catch (e) {
-        logStatus(`Could not auto-generate a preview - ${e.message}. You can still upload your own below.`, 'warn');
-        $('thumbnailBox').classList.remove('hidden');
+      const previewsForGallery = [];
+      for (let i = 0; i < expectedArtboards.length; i++) {
+        const artboardName = expectedArtboards[i];
+        try {
+          logStatus(`Generating a preview of "${artboardName}"...`, 'info');
+          const { blob } = await engine.exportArtboardPNG(artboardName);
+          const thumbBlob = await downscaleToThumbnail(blob);
+          previewsForGallery.push({ artboardName, blob: thumbBlob });
+          artboardPreviews[artboardName.toLowerCase()] = `templates/thumbnails/${templateId}-${artboardName.toLowerCase()}.png`;
+          if (i === 0) {
+            autoThumbnailUrl = thumbBlob;
+            setThumbnailPreview(thumbBlob);
+            thumbnailGenerated = true;
+          }
+        } catch (e) {
+          logStatus(`Could not generate a preview for "${artboardName}" - ${e.message}.`, 'warn');
+          if (i === 0) $('thumbnailBox').classList.remove('hidden'); // keep the manual-override option available even if auto-generation failed
+        }
       }
+      if (previewsForGallery.length) renderPreviewGallery(previewsForGallery);
     }
 
     if (report.passed) {
@@ -138,6 +169,7 @@ runVetBtn.addEventListener('click', async () => {
         thumbnail: thumbnailGenerated ? `templates/thumbnails/${templateId}.png` : null,
         artboards: expectedArtboards,
         repeatable: repeatable,
+        artboardPreviews: Object.keys(artboardPreviews).length ? artboardPreviews : null,
         vettedAt: new Date().toISOString(),
         metadata: { artboards: report.extraction.artboards },
       };
