@@ -32,9 +32,21 @@
   <section id="screen-form" class="hidden">
     <a href="#" id="backToDashboard" class="back-link">&larr; Back to templates</a>
     <h1 class="page-title" id="formTemplateName">Template</h1>
-    <p class="page-subtitle">Fill in your text and photos for each slide.</p>
-    <div id="formSlides"></div>
-    <button type="button" id="generateBtn" class="btn-primary btn-full">Generate design</button>
+    <p class="page-subtitle">Swipe or use the arrows to move between slides.</p>
+
+    <div id="middleCountRow" class="middle-count-row hidden">
+      <label class="field-label" style="margin:0;" id="middleCountLabel">How many slides?</label>
+      <input type="number" id="middleCountInput" class="text-input" min="1" max="20" value="1">
+    </div>
+
+    <div class="carousel-wrap">
+      <div id="formPagesTrack" class="carousel-track"></div>
+      <button type="button" id="carouselPrevBtn" class="carousel-arrow carousel-arrow-left" aria-label="Previous slide">&larr;</button>
+      <button type="button" id="carouselNextBtn" class="carousel-arrow carousel-arrow-right" aria-label="Next slide">&rarr;</button>
+    </div>
+    <div id="carouselDots" class="carousel-dots"></div>
+
+    <button type="button" id="generateBtn" class="btn-primary btn-full" style="margin-top:20px;">Generate design</button>
   </section>
 
   <!-- ===== Screen: Generating ===== -->
