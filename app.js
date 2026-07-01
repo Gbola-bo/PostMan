@@ -1,4 +1,4 @@
-import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=5';
+import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=6';
 
 // ---------- DOM refs ----------
 const $ = (id) => document.getElementById(id);
@@ -724,7 +724,7 @@ async function runOneJob(engine, job) {
 // Paste your Apps Script /exec URL here after deploying drive-exporter.gs.
 // Leave as null to hide the "Export to Drive" button entirely until
 // the script is set up.
-const DRIVE_EXPORT_URL = null; // e.g. 'https://script.google.com/macros/s/AKfy.../exec'
+const DRIVE_EXPORT_URL = https://script.google.com/macros/s/AKfycbxqTm35dUNSPxfAosKy9wdECMKoFZFSwjoV7F5ARiOCKOyPBSLXA5hapvWsavXrT6-c/exec; // e.g. 'https://script.google.com/macros/s/AKfy.../exec'
 
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
@@ -807,65 +807,56 @@ function renderResults(results) {
 
   const downloadAllBtn = $('downloadAllBtn');
   const driveBtn = $('exportToDriveBtn');
-  if (results.length > 1) {
-    downloadAllBtn.classList.remove('hidden');
-    downloadAllBtn.onclick = async () => {
-      downloadAllBtn.disabled = true;
-      downloadAllBtn.textContent = 'Preparing zip...';
-      try {
-        const zipBlob = await buildZip(results.map((r) => ({ name: `${r.label}.${r.ext}`, blob: r.blob })));
-        const url = URL.createObjectURL(zipBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${currentTemplate?.name || 'postmann-designs'}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
-      } catch (e) {
-        alert(`Could not build the zip: ${e.message}`);
-      } finally {
-        downloadAllBtn.disabled = false;
-        downloadAllBtn.textContent = 'Download all (.zip)';
-      }
-    };
-  } else {
-    downloadAllBtn.classList.add('hidden');
-  }
 
-  // Show Drive export button only when the URL is configured.
-  // Single-slide exports still get the button (the zip button only
-  // shows for multiple results, but Drive is useful for one file too).
-  if (DRIVE_EXPORT_URL) {
-    driveBtn.classList.remove('hidden');
-    driveBtn.onclick = () => {
-      const panel = $('driveNamePanel');
-      const input = $('driveFolderNameInput');
-      // Pre-fill with the template name as a sensible default so the
-      // user can just tap "Export" immediately without typing anything.
-      input.value = currentTemplate?.name || '';
-      $('driveResultCard').classList.add('hidden');
-      panel.classList.remove('hidden');
-      // Focus and select the pre-filled name so it's easy to replace on
-      // desktop, but don't force the keyboard open on mobile unnecessarily.
-      if (window.matchMedia('(min-width: 640px)').matches) input.focus();
-    };
+  // Always show Download all - useful even for a single file, and
+  // hiding it for single results was confusing (users couldn't find it).
+  downloadAllBtn.classList.remove('hidden');
+  downloadAllBtn.onclick = async () => {
+    downloadAllBtn.disabled = true;
+    downloadAllBtn.textContent = 'Preparing zip...';
+    try {
+      const zipBlob = await buildZip(results.map((r) => ({ name: `${r.label}.${r.ext}`, blob: r.blob })));
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${currentTemplate?.name || 'postmann-designs'}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) {
+      alert(`Could not build the zip: ${e.message}`);
+    } finally {
+      downloadAllBtn.disabled = false;
+      downloadAllBtn.textContent = 'Download all (.zip)';
+    }
+  };
 
-    $('driveConfirmBtn').onclick = () => {
-      const folderName = $('driveFolderNameInput').value.trim();
-      if (!folderName) {
-        $('driveFolderNameInput').focus();
-        return;
-      }
-      runDriveExport(results, folderName);
-    };
-    // Also allow submitting by pressing Enter in the name field
-    $('driveFolderNameInput').onkeydown = (e) => {
-      if (e.key === 'Enter') $('driveConfirmBtn').click();
-    };
-  } else {
-    driveBtn.classList.add('hidden');
-  }
+  // Always show Export to Drive so it's visible. If the Apps Script URL
+  // hasn't been configured yet, tapping it explains what to do rather
+  // than hiding the button entirely and leaving the user wondering.
+  driveBtn.classList.remove('hidden');
+  driveBtn.onclick = () => {
+    if (!DRIVE_EXPORT_URL) {
+      alert('Export to Drive isn\'t connected yet.\n\nTo set it up:\n1. Deploy drive-exporter.gs as a Google Apps Script Web App\n2. Paste the /exec URL into DRIVE_EXPORT_URL in app.js');
+      return;
+    }
+    const panel = $('driveNamePanel');
+    const input = $('driveFolderNameInput');
+    input.value = currentTemplate?.name || '';
+    $('driveResultCard').classList.add('hidden');
+    panel.classList.remove('hidden');
+    if (window.matchMedia('(min-width: 640px)').matches) input.focus();
+  };
+
+  $('driveConfirmBtn').onclick = () => {
+    const folderName = $('driveFolderNameInput').value.trim();
+    if (!folderName) { $('driveFolderNameInput').focus(); return; }
+    runDriveExport(results, folderName);
+  };
+  $('driveFolderNameInput').onkeydown = (e) => {
+    if (e.key === 'Enter') $('driveConfirmBtn').click();
+  };
 }
 
 // ---------- Boot ----------
