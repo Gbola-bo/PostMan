@@ -1,4 +1,4 @@
-import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=3';
+import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=5';
 
 // ---------- DOM refs ----------
 const $ = (id) => document.getElementById(id);
@@ -719,9 +719,78 @@ async function runOneJob(engine, job) {
   }
 }
 
+// ---------- Drive export ----------
+
+// Paste your Apps Script /exec URL here after deploying drive-exporter.gs.
+// Leave as null to hide the "Export to Drive" button entirely until
+// the script is set up.
+const DRIVE_EXPORT_URL = null; // e.g. 'https://script.google.com/macros/s/AKfy.../exec'
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = () => reject(new Error('FileReader failed while encoding file for Drive upload'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function runDriveExport(results, folderName) {
+  const confirmBtn = $('driveConfirmBtn');
+  const nameInput = $('driveFolderNameInput');
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Uploading...';
+  nameInput.disabled = true;
+
+  try {
+    const files = await Promise.all(results.map(async (r) => ({
+      name: `${r.label}.${r.ext}`,
+      base64: await blobToBase64(r.blob),
+      mimeType: r.ext === 'gif' ? 'image/gif' : 'image/png',
+    })));
+
+    // text/plain;charset=utf-8 is a "simple request" that never
+    // triggers a CORS preflight, which Apps Script can't respond to.
+    const response = await fetch(DRIVE_EXPORT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ folderName, files }),
+    });
+
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.error || 'Unknown error from the Apps Script endpoint');
+
+    // Hide the name panel, show the sharing-link result card
+    $('driveNamePanel').classList.add('hidden');
+    $('driveResultFolderName').textContent = `PostMann Exports / ${data.folderName}`;
+
+    const copyBtn = $('copyDriveLinkBtn');
+    copyBtn.textContent = 'Copy link';
+    copyBtn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(data.folderUrl);
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => { copyBtn.textContent = 'Copy link'; }, 1800);
+      } catch (e) {
+        // Clipboard API blocked on some Android browsers - fall back
+        // to a native prompt so they can long-press and copy manually.
+        prompt('Copy this link:', data.folderUrl);
+      }
+    };
+    $('driveResultCard').classList.remove('hidden');
+  } catch (e) {
+    alert(`Drive export failed: ${e.message}`);
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Export';
+    nameInput.disabled = false;
+  }
+}
+
 function renderResults(results) {
   const grid = $('resultsGrid');
   grid.innerHTML = '';
+  $('driveResultCard').classList.add('hidden');
+  $('driveNamePanel').classList.add('hidden');
   results.forEach((r) => {
     const url = URL.createObjectURL(r.blob);
     const card = document.createElement('div');
@@ -737,6 +806,7 @@ function renderResults(results) {
   });
 
   const downloadAllBtn = $('downloadAllBtn');
+  const driveBtn = $('exportToDriveBtn');
   if (results.length > 1) {
     downloadAllBtn.classList.remove('hidden');
     downloadAllBtn.onclick = async () => {
@@ -761,6 +831,40 @@ function renderResults(results) {
     };
   } else {
     downloadAllBtn.classList.add('hidden');
+  }
+
+  // Show Drive export button only when the URL is configured.
+  // Single-slide exports still get the button (the zip button only
+  // shows for multiple results, but Drive is useful for one file too).
+  if (DRIVE_EXPORT_URL) {
+    driveBtn.classList.remove('hidden');
+    driveBtn.onclick = () => {
+      const panel = $('driveNamePanel');
+      const input = $('driveFolderNameInput');
+      // Pre-fill with the template name as a sensible default so the
+      // user can just tap "Export" immediately without typing anything.
+      input.value = currentTemplate?.name || '';
+      $('driveResultCard').classList.add('hidden');
+      panel.classList.remove('hidden');
+      // Focus and select the pre-filled name so it's easy to replace on
+      // desktop, but don't force the keyboard open on mobile unnecessarily.
+      if (window.matchMedia('(min-width: 640px)').matches) input.focus();
+    };
+
+    $('driveConfirmBtn').onclick = () => {
+      const folderName = $('driveFolderNameInput').value.trim();
+      if (!folderName) {
+        $('driveFolderNameInput').focus();
+        return;
+      }
+      runDriveExport(results, folderName);
+    };
+    // Also allow submitting by pressing Enter in the name field
+    $('driveFolderNameInput').onkeydown = (e) => {
+      if (e.key === 'Enter') $('driveConfirmBtn').click();
+    };
+  } else {
+    driveBtn.classList.add('hidden');
   }
 }
 
