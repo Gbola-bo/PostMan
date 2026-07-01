@@ -386,6 +386,81 @@ img { max-width: 100%; display: block; }
 .progress-bar-fill { height: 100%; background: var(--brand-600); transition: width 0.3s; }
 
 /* ===== Results ===== */
+.results-action-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.results-action-row .btn-secondary {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  font-size: 13px;
+  padding: 10px 12px;
+}
+
+/* Folder-naming panel - slides in below the action row when
+   "Export to Drive" is tapped, collapses when done. */
+.drive-name-panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 14px;
+  margin-bottom: 12px;
+  animation: panelIn 0.18s ease-out;
+}
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.drive-name-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+.drive-name-row .text-input { flex: 1; min-width: 0; }
+.drive-name-row .btn-primary { width: auto; flex-shrink: 0; padding: 12px 18px; }
+
+/* Drive result card - appears between the action row and the grid once
+   an export finishes. Stays hidden until then. */
+.drive-result-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--success-bg);
+  margin-bottom: 14px;
+}
+.drive-result-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--success-text);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.drive-result-body { flex: 1; min-width: 0; }
+.drive-result-label { font-size: 12px; font-weight: 600; color: var(--success-text); margin: 0; }
+.drive-result-folder { font-size: 11px; color: var(--success-text); opacity: 0.8; margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drive-copy-btn {
+  background: var(--success-text);
+  color: white;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+  min-height: 36px;
+  flex-shrink: 0;
+}
+.drive-copy-btn:active { opacity: 0.85; }
+
 .results-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
