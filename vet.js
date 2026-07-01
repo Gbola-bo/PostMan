@@ -1,4 +1,4 @@
-import { PostManRenderEngine } from './render-engine.js?v=6';
+import { PostManRenderEngine } from './render-engine.js?v=7';
 
 // Splits a manifest into a lightweight index (everything the dashboard
 // needs to render cards - no metadata) plus one detail-file payload per
