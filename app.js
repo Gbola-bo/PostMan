@@ -1,4 +1,4 @@
-import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=6';
+import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=7';
 
 // ---------- DOM refs ----------
 const $ = (id) => document.getElementById(id);
@@ -843,7 +843,13 @@ function renderResults(results) {
     }
     const panel = $('driveNamePanel');
     const input = $('driveFolderNameInput');
+    const confirmBtn = $('driveConfirmBtn');
+    // Always reset state when revealing - a previous export's
+    // "Uploading..." disabled state would otherwise carry over.
     input.value = currentTemplate?.name || '';
+    input.disabled = false;
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Export';
     $('driveResultCard').classList.add('hidden');
     panel.classList.remove('hidden');
     if (window.matchMedia('(min-width: 640px)').matches) input.focus();
