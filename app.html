@@ -63,7 +63,33 @@
     <a href="#" id="backToFormFromResults" class="back-link">&larr; Back to editing</a>
     <h1 class="page-title">Your designs are ready</h1>
     <p class="page-subtitle">Download each slide, or all of them at once.</p>
-    <button type="button" id="downloadAllBtn" class="btn-secondary btn-full hidden" style="margin-bottom:14px;">Download all (.zip)</button>
+
+    <div class="results-action-row">
+      <button type="button" id="downloadAllBtn" class="btn-secondary hidden">Download all (.zip)</button>
+      <button type="button" id="exportToDriveBtn" class="btn-secondary hidden">Export to Drive</button>
+    </div>
+
+    <!-- Inline folder-naming panel - hidden until "Export to Drive" is tapped -->
+    <div id="driveNamePanel" class="drive-name-panel hidden">
+      <label class="field-label" style="margin-top:0;">Folder name</label>
+      <div class="drive-name-row">
+        <input type="text" id="driveFolderNameInput" class="text-input" placeholder="e.g. PlayStreet - Match Day">
+        <button type="button" id="driveConfirmBtn" class="btn-primary">Export</button>
+      </div>
+    </div>
+
+    <!-- Result card - hidden until export completes -->
+    <div id="driveResultCard" class="drive-result-card hidden">
+      <div class="drive-result-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="drive-result-body">
+        <p class="drive-result-label">Saved to Drive</p>
+        <p id="driveResultFolderName" class="drive-result-folder"></p>
+      </div>
+      <button type="button" id="copyDriveLinkBtn" class="drive-copy-btn">Copy link</button>
+    </div>
+
     <div id="resultsGrid" class="results-grid"></div>
     <button type="button" id="startOverBtn" class="btn-secondary btn-full" style="margin-top:18px;">Start a new design</button>
   </section>
@@ -86,6 +112,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=3"></script>
+<script type="module" src="app.js?v=5"></script>
 </body>
 </html>
