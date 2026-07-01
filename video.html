@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PostMann - Video</title>
+<meta name="theme-color" content="#fb3662">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ===== Video page styles ===== */
+.video-topbar {
+  min-height: 56px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  padding-top: env(safe-area-inset-top);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+.video-topbar-logo { height: 30px; width: auto; display: block; }
+.video-topbar .spacer { flex: 1; }
+
+.video-main {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 20px 16px calc(48px + env(safe-area-inset-bottom));
+}
+
+/* Two-column layout on wider screens: preview left, controls right */
+.video-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+@media (min-width: 600px) {
+  .video-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 28px;
+  }
+  .video-preview-col { flex-shrink: 0; width: 220px; }
+  .video-controls-col { flex: 1; min-width: 0; }
+}
+
+/* ===== Canvas preview ===== */
+.canvas-wrap {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.14);
+  background: #000;
+  /* 9:16 aspect ratio */
+  aspect-ratio: 9 / 16;
+  width: 100%;
+  max-width: 220px;
+  margin: 0 auto;
+}
+@media (min-width: 600px) {
+  .canvas-wrap { margin: 0; }
+}
+#previewCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 14px;
+}
+.canvas-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--surface-tertiary);
+  pointer-events: none;
+}
+.canvas-placeholder svg { opacity: 0.3; }
+.canvas-placeholder p { font-size: 11px; color: var(--text-tertiary); text-align: center; }
+
+/* ===== Controls ===== */
+.section-title { font-size: 16px; font-weight: 700; margin: 0 0 4px; }
+.section-sub { font-size: 13px; color: var(--text-secondary); margin: 0 0 18px; }
+
+.upload-box {
+  border: 1.5px dashed var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 18px 14px;
+  text-align: center;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.upload-box:hover { border-color: var(--brand-600); background: var(--brand-50); }
+.upload-box input[type="file"] { display: none; }
+.upload-box .upload-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-600);
+}
+.upload-box .upload-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 3px;
+}
+.file-chosen {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+  padding: 0 4px;
+}
+
+.controls-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 20px 0;
+}
+
+.template-selector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.template-btn {
+  flex: 1;
+  padding: 10px 8px;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  cursor: pointer;
+}
+.template-btn.active {
+  border-color: var(--brand-600);
+  background: var(--brand-50);
+  color: var(--brand-800);
+}
+
+/* ===== Action buttons ===== */
+.action-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+.action-row .btn-primary,
+.action-row .btn-secondary {
+  flex: 1;
+  font-size: 13px;
+  padding: 12px 10px;
+}
+
+/* ===== Recording state ===== */
+.record-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff3b30;
+  display: none;
+  animation: recPulse 1s ease-in-out infinite;
+}
+.recording .record-indicator { display: block; }
+@keyframes recPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ===== Progress bar ===== */
+.record-progress-wrap {
+  margin-top: 12px;
+  display: none;
+}
+.record-progress-wrap.visible { display: block; }
+.record-progress-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+  display: flex;
+  justify-content: space-between;
+}
+.record-progress-track {
+  height: 5px;
+  background: var(--surface-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.record-progress-fill {
+  height: 100%;
+  background: var(--brand-600);
+  width: 0%;
+  transition: width 0.25s;
+}
+
+/* ===== Outputs ===== */
+.outputs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 18px;
+}
+.output-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+.output-card video, .output-card img {
+  width: 100%;
+  display: block;
+  background: #000;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+}
+.output-card .output-label { font-size: 11px; font-weight: 600; padding: 8px 10px 2px; }
+.output-card .download-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; font-size: 12px; font-weight: 600;
+  padding: 10px; min-height: 40px;
+  border: none; border-top: 1px solid var(--border-subtle);
+  background: var(--surface); cursor: pointer;
+}
+.output-card .download-btn:active { background: var(--surface-secondary); }
+
+/* ===== Browser support note ===== */
+.support-note {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: var(--surface-tertiary);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-top: 14px;
+  line-height: 1.5;
+}
+</style>
+</head>
+<body>
+
+<header class="video-topbar">
+  <a href="index.html">
+    <img src="assets/logo-full.svg" alt="PostMann" class="video-topbar-logo">
+  </a>
+  <div class="spacer"></div>
+  <a href="app.html" class="btn-text-link">Templates</a>
+</header>
+
+<main class="video-main">
+  <p class="page-title" style="margin-bottom:4px;">Video</p>
+  <p class="page-subtitle" style="margin-bottom:22px;">Upload your clip, add a branded overlay, export your post.</p>
+
+  <div class="video-layout">
+    <!-- Left: canvas preview -->
+    <div class="video-preview-col">
+      <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="previewCanvas" width="1080" height="1920"></canvas>
+        <div class="canvas-placeholder" id="canvasPlaceholder">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="3"/><polygon points="10,8 16,12 10,16"/></svg>
+          <p>Upload a video to see your preview here</p>
+        </div>
+        <div class="record-indicator" id="recordIndicator"></div>
+      </div>
+      <div class="record-progress-wrap" id="recordProgress">
+        <div class="record-progress-label">
+          <span>Recording...</span>
+          <span id="recordTimeLabel">0s</span>
+        </div>
+        <div class="record-progress-track">
+          <div class="record-progress-fill" id="recordFill"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: controls -->
+    <div class="video-controls-col">
+
+      <div class="field-label" style="margin-top:0;">Template style</div>
+      <div class="template-selector">
+        <button type="button" class="template-btn active" data-tpl="fullbleed">Full bleed</button>
+        <button type="button" class="template-btn" data-tpl="framed">Framed</button>
+      </div>
+
+      <label class="upload-box" for="videoFileInput">
+        <input type="file" id="videoFileInput" accept="video/*">
+        <div class="upload-label">Choose video</div>
+        <div class="upload-hint">MP4, MOV, WebM — any format your browser can play</div>
+      </label>
+      <div class="file-chosen hidden" id="videoFileName"></div>
+
+      <div style="margin-top:14px;">
+        <label class="field-label">Headline text (overlaid on video)</label>
+        <input type="text" id="headlineInput" class="text-input" placeholder="Leave blank to skip">
+      </div>
+
+      <div style="margin-top:12px;">
+        <label class="field-label">Text colour</label>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <input type="color" id="textColourInput" value="#ffffff" style="width:44px; height:44px; border:1px solid var(--border-default); border-radius:var(--radius-md); padding:2px; cursor:pointer;">
+          <span style="font-size:12px; color:var(--text-secondary);">White works well over most footage</span>
+        </div>
+      </div>
+
+      <div class="controls-divider"></div>
+
+      <div class="action-row">
+        <button type="button" id="recordBtn" class="btn-primary" disabled>Record video</button>
+        <button type="button" id="coverBtn" class="btn-secondary" disabled>Save cover PNG</button>
+      </div>
+
+      <div class="support-note" id="supportNote"></div>
+
+    </div>
+  </div>
+
+  <!-- Outputs appear here once recording/capture is done -->
+  <div id="outputsSection" class="hidden" style="margin-top:24px;">
+    <p style="font-size:15px; font-weight:700; margin-bottom:14px;">Your exports</p>
+    <div class="outputs-grid" id="outputsGrid"></div>
+  </div>
+
+</main>
+
+<script>
+// ============================================================
+// PostMann Video POC
+// native canvas + MediaRecorder, no framework, no build step
+// ============================================================
+
+const $ = id => document.getElementById(id);
+const canvas = $('previewCanvas');
+const ctx = canvas.getContext('2d');
+const W = 1080, H = 1920;
+canvas.width = W;
+canvas.height = H;
+
+let videoEl = null;       // the hidden <video> element driving the canvas
+let logoImg = null;       // preloaded logo image
+let animFrame = null;     // active requestAnimationFrame handle
+let activeTemplate = 'fullbleed';
+let recording = false;
+
+// ---- Preload the logo ----
+function loadLogo() {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => { logoImg = img; resolve(); };
+    img.onerror = () => resolve(); // logo missing, draw without it
+    img.src = 'assets/logo-icon.svg';
+  });
+}
+loadLogo();
+
+// ---- Browser capability check ----
+function checkSupport() {
+  const note = $('supportNote');
+  const lines = [];
+  if (!window.MediaRecorder) lines.push('⚠️ MediaRecorder not supported in this browser — video recording won\'t work. Try Chrome or Edge.');
+  if (!HTMLCanvasElement.prototype.captureStream) lines.push('⚠️ canvas.captureStream() not supported — try Chrome on Android.');
+  if (lines.length === 0) {
+    // Check what MIME types are available
+    const webm = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ||
+                  MediaRecorder.isTypeSupported('video/webm;codecs=vp8') ||
+                  MediaRecorder.isTypeSupported('video/webm');
+    const mp4  = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') ||
+                 MediaRecorder.isTypeSupported('video/mp4');
+    lines.push(`✓ Recording supported — format: ${mp4 ? 'MP4' : webm ? 'WebM' : 'browser default'}`);
+    lines.push('Note: audio in exported video depends on browser/device.');
+  }
+  note.textContent = lines.join(' ');
+}
+checkSupport();
+
+function bestMimeType() {
+  const types = [
+    'video/mp4;codecs=avc1',
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+  ];
+  return types.find(t => MediaRecorder.isTypeSupported(t)) || '';
+}
+
+// ---- Template drawing ----
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  // Simple word-wrap for canvas text
+  const words = text.split(' ');
+  let line = '';
+  const lines = [];
+  for (let i = 0; i < words.length; i++) {
+    const test = line ? line + ' ' + words[i] : words[i];
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = words[i];
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  const totalH = lines.length * lineHeight;
+  const startY = y - totalH + lineHeight;
+  lines.forEach((l, i) => ctx.fillText(l, x, startY + i * lineHeight));
+}
+
+function drawOverlay(headline, textColour) {
+  // Brand gradient bar at top
+  const topH = 100;
+  const grd = ctx.createLinearGradient(0, 0, W, 0);
+  grd.addColorStop(0, '#ff684d');
+  grd.addColorStop(0.45, '#fb3662');
+  grd.addColorStop(1, '#9d356c');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W, topH);
+
+  // Logo in brand bar
+  if (logoImg) {
+    const logoH = 54;
+    const logoW = logoH;
+    ctx.drawImage(logoImg, 24, (topH - logoH) / 2, logoW, logoH);
+  }
+
+  // Bottom gradient scrim for text legibility
+  if (headline && headline.trim()) {
+    const scrimH = H * 0.45;
+    const scrim = ctx.createLinearGradient(0, H - scrimH, 0, H);
+    scrim.addColorStop(0, 'rgba(0,0,0,0)');
+    scrim.addColorStop(1, 'rgba(0,0,0,0.78)');
+    ctx.fillStyle = scrim;
+    ctx.fillRect(0, H - scrimH, W, scrimH);
+
+    // Headline text
+    ctx.fillStyle = textColour || '#ffffff';
+    ctx.font = `700 72px "Funnel Display", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    wrapText(ctx, headline.trim(), W / 2, H - 80, W - 100, 88);
+  }
+}
+
+function drawTemplateFullBleed(headline, textColour) {
+  if (!videoEl) return drawBlankFrame();
+  // Video fills entire canvas
+  ctx.drawImage(videoEl, 0, 0, W, H);
+  drawOverlay(headline, textColour);
+}
+
+function drawTemplateFramed(headline, textColour) {
+  if (!videoEl) return drawBlankFrame();
+  // Cream background
+  ctx.fillStyle = '#fafaf9';
+  ctx.fillRect(0, 0, W, H);
+
+  // Brand gradient bar at top (taller in this template)
+  const topH = 160;
+  const grd = ctx.createLinearGradient(0, 0, W, 0);
+  grd.addColorStop(0, '#ff684d');
+  grd.addColorStop(0.45, '#fb3662');
+  grd.addColorStop(1, '#9d356c');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W, topH);
+
+  if (logoImg) {
+    const logoH = 80;
+    ctx.drawImage(logoImg, 36, (topH - logoH) / 2, logoH, logoH);
+  }
+
+  // Video in a rounded rectangle in the centre
+  const vPad = 36;
+  const vX = vPad;
+  const vY = topH + 36;
+  const vW = W - vPad * 2;
+  // Maintain the video's original aspect ratio within the available space
+  const vH = Math.min(H * 0.56, vW * (videoEl.videoHeight / (videoEl.videoWidth || 1)));
+  const radius = 28;
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(vX, vY, vW, vH, radius);
+  ctx.clip();
+  ctx.drawImage(videoEl, vX, vY, vW, vH);
+  ctx.restore();
+
+  // Subtle border around the video
+  ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(vX, vY, vW, vH, radius);
+  ctx.stroke();
+
+  // Headline below video
+  if (headline && headline.trim()) {
+    ctx.fillStyle = '#171717';
+    ctx.font = `700 68px "Funnel Display", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    const textY = vY + vH + 52;
+    wrapText(ctx, headline.trim(), W / 2, textY, W - 100, 84);
+  }
+
+  // Brand dots at bottom as accent
+  const dotY = H - 70;
+  ['#ff684d', '#fb3662', '#9d356c'].forEach((c, i) => {
+    ctx.fillStyle = c;
+    ctx.beginPath();
+    ctx.arc(W / 2 + (i - 1) * 36, dotY, 10, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function drawBlankFrame() {
+  ctx.fillStyle = '#f1efe8';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#9b9a95';
+  ctx.font = '36px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Upload a video to preview', W / 2, H / 2);
+}
+
+function getHeadline() { return $('headlineInput').value; }
+function getTextColour() { return $('textColourInput').value; }
+
+function drawCurrentFrame() {
+  if (activeTemplate === 'framed') {
+    drawTemplateFramed(getHeadline(), getTextColour());
+  } else {
+    drawTemplateFullBleed(getHeadline(), getTextColour());
+  }
+}
+
+function startPreviewLoop() {
+  cancelAnimationFrame(animFrame);
+  function loop() {
+    drawCurrentFrame();
+    animFrame = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+// ---- File upload ----
+$('videoFileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  $('videoFileName').textContent = file.name;
+  $('videoFileName').classList.remove('hidden');
+  $('canvasPlaceholder').style.display = 'none';
+
+  if (videoEl) {
+    videoEl.pause();
+    videoEl.src = '';
+  }
+  videoEl = document.createElement('video');
+  videoEl.muted = true;  // must be muted for autoplay/loop
+  videoEl.loop = true;
+  videoEl.playsInline = true;
+  videoEl.preload = 'auto';
+  videoEl.crossOrigin = 'anonymous';
+  videoEl.src = URL.createObjectURL(file);
+  videoEl.play().catch(() => {});
+  startPreviewLoop();
+
+  $('recordBtn').disabled = false;
+  $('coverBtn').disabled = false;
+});
+
+// Live preview updates on text/colour change
+$('headlineInput').addEventListener('input', () => {});
+$('textColourInput').addEventListener('input', () => {});
+
+// Template switcher
+document.querySelectorAll('.template-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeTemplate = btn.dataset.tpl;
+  });
+});
+
+// ---- Recording ----
+$('recordBtn').addEventListener('click', async () => {
+  if (recording) return;
+  if (!videoEl) return;
+
+  const mimeType = bestMimeType();
+  if (!HTMLCanvasElement.prototype.captureStream) {
+    alert('canvas.captureStream() is not supported in this browser. Try Chrome on Android or desktop Chrome/Edge.');
+    return;
+  }
+
+  recording = true;
+  $('canvasWrap').classList.add('recording');
+  $('recordBtn').disabled = true;
+  $('recordBtn').textContent = 'Recording...';
+  $('recordProgress').classList.add('visible');
+
+  // Unmute for the capture stream (we need to set up audio separately
+  // since muted video elements don't expose audio tracks)
+  let captureStream;
+  try {
+    // Try to create an unmuted version for audio
+    const audioVideo = document.createElement('video');
+    audioVideo.src = videoEl.src;
+    audioVideo.currentTime = 0;
+    audioVideo.playsInline = true;
+    await new Promise(r => { audioVideo.onloadeddata = r; audioVideo.onerror = r; });
+
+    const canvasStream = canvas.captureStream(30);
+    const audioStream = audioVideo.captureStream
+      ? audioVideo.captureStream()
+      : audioVideo.mozCaptureStream
+      ? audioVideo.mozCaptureStream()
+      : null;
+
+    const tracks = [...canvasStream.getTracks()];
+    if (audioStream) {
+      audioStream.getAudioTracks().forEach(t => tracks.push(t));
+    }
+    captureStream = new MediaStream(tracks);
+    audioVideo.play().catch(() => {});
+  } catch (e) {
+    // Fall back to canvas-only (no audio)
+    captureStream = canvas.captureStream(30);
+  }
+
+  const recorder = new MediaRecorder(captureStream, mimeType ? { mimeType } : {});
+  const chunks = [];
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+  let duration = 0;
+  const totalDuration = videoEl.duration || 30;
+
+  // Reset to start of clip for the recording pass
+  videoEl.loop = false;
+  videoEl.muted = true;
+  videoEl.currentTime = 0;
+  videoEl.play().catch(() => {});
+
+  recorder.start(100); // collect data every 100ms
+
+  const progressInterval = setInterval(() => {
+    duration = videoEl.currentTime;
+    const pct = Math.min(100, (duration / totalDuration) * 100);
+    $('recordFill').style.width = pct + '%';
+    $('recordTimeLabel').textContent = Math.round(duration) + 's / ' + Math.round(totalDuration) + 's';
+  }, 250);
+
+  recorder.onstop = () => {
+    clearInterval(progressInterval);
+    recording = false;
+    $('canvasWrap').classList.remove('recording');
+    $('recordBtn').disabled = false;
+    $('recordBtn').textContent = 'Record video';
+    $('recordProgress').classList.remove('visible');
+    $('recordFill').style.width = '0%';
+    videoEl.loop = true;
+    videoEl.muted = true;
+    videoEl.play().catch(() => {});
+
+    const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+    const blob = new Blob(chunks, { type: mimeType || 'video/webm' });
+    addOutput('video', blob, `PostMann-video.${ext}`, ext);
+  };
+
+  videoEl.onended = () => {
+    if (recorder.state !== 'inactive') recorder.stop();
+  };
+  // Safety fallback in case onended doesn't fire
+  setTimeout(() => {
+    if (recorder.state !== 'inactive') recorder.stop();
+  }, (totalDuration + 2) * 1000);
+});
+
+// ---- Cover PNG export ----
+$('coverBtn').addEventListener('click', () => {
+  // Pause the live preview loop, draw a single frame, export, resume
+  cancelAnimationFrame(animFrame);
+  if (videoEl) {
+    videoEl.pause();
+    // Seek to first frame for a clean cover
+    videoEl.currentTime = 0;
+    const onSeeked = () => {
+      videoEl.removeEventListener('seeked', onSeeked);
+      drawCurrentFrame();
+      exportCanvasPNG();
+      videoEl.play().catch(() => {});
+      startPreviewLoop();
+    };
+    videoEl.addEventListener('seeked', onSeeked);
+  } else {
+    drawCurrentFrame();
+    exportCanvasPNG();
+    startPreviewLoop();
+  }
+});
+
+function exportCanvasPNG() {
+  canvas.toBlob(blob => {
+    if (blob) addOutput('image', blob, 'PostMann-cover.png', 'png');
+  }, 'image/png');
+}
+
+// ---- Output cards ----
+function addOutput(type, blob, filename, ext) {
+  const url = URL.createObjectURL(blob);
+  const section = $('outputsSection');
+  const grid = $('outputsGrid');
+  section.classList.remove('hidden');
+
+  const card = document.createElement('div');
+  card.className = 'output-card';
+  const label = type === 'video' ? 'Video' : 'Cover PNG';
+  const media = type === 'video'
+    ? `<video src="${url}" autoplay loop muted playsinline></video>`
+    : `<img src="${url}" alt="">`;
+  card.innerHTML = `
+    <div class="output-label">${label}</div>
+    ${media}
+    <button type="button" class="download-btn">Download .${ext}</button>
+  `;
+  card.querySelector('.download-btn').addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+  grid.appendChild(card);
+}
+
+// ---- Draw blank canvas on load ----
+drawBlankFrame();
+</script>
+</body>
+</html>
