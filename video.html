@@ -341,12 +341,13 @@ const W = 540, H = 960;
 canvas.width = W;
 canvas.height = H;
 
-let videoEl = null;       // the hidden <video> element driving the canvas
+let videoEl = null;       // muted <video> driving the canvas - browser never decodes audio for it
+let audioEl = null;       // separate <audio> that is NEVER muted - this is what we capture from
 let logoImg = null;       // preloaded logo image
 let animFrame = null;     // active requestAnimationFrame handle
 let activeTemplate = 'fullbleed';
 let recording = false;
-let activeAudioCtx = null; // kept at module level so GC can't collect it mid-recording
+let activeAudioCtx = null; // module-level so GC can't collect it mid-recording
 
 // ---- Preload the logo ----
 function loadLogo() {
@@ -553,20 +554,37 @@ $('videoFileInput').addEventListener('change', (e) => {
   $('videoFileName').classList.remove('hidden');
   $('canvasPlaceholder').style.display = 'none';
 
-  if (videoEl) {
-    videoEl.pause();
-    videoEl.src = '';
-  }
+  const url = URL.createObjectURL(file);
+
+  // --- Visual element (muted, drives canvas only) ---
+  if (videoEl) { videoEl.pause(); videoEl.src = ''; }
   videoEl = document.createElement('video');
-  videoEl.muted = true;  // must be muted for autoplay/loop
+  videoEl.muted = true;   // muted: browser skips audio decoding - intentional
   videoEl.loop = true;
   videoEl.playsInline = true;
   videoEl.preload = 'auto';
   videoEl.crossOrigin = 'anonymous';
-  videoEl.src = URL.createObjectURL(file);
+  videoEl.src = url;
   videoEl.play().catch(() => {});
-  startPreviewLoop();
 
+  // --- Audio element (NEVER muted, captures audio for the render pass) ---
+  // A separate element is essential because browsers don't decode audio
+  // for muted video elements, so createMediaElementSource on videoEl
+  // gives us nothing. This element is never muted from creation.
+  // We also call play/pause right here while we're still inside the
+  // file-picker's user gesture - iOS requires this to unlock programmatic
+  // playback for any future .play() calls on this element.
+  if (audioEl) { audioEl.pause(); audioEl.src = ''; }
+  audioEl = document.createElement('audio');
+  audioEl.src = url;
+  audioEl.preload = 'auto';
+  audioEl.loop = false;
+  // Unlock iOS autoplay during this user gesture (must be synchronous)
+  audioEl.play()
+    .then(() => { audioEl.pause(); audioEl.currentTime = 0; })
+    .catch(() => {}); // autoplay blocked - that's OK, we tried
+
+  startPreviewLoop();
   $('recordBtn').disabled = false;
   $('coverBtn').disabled = false;
 });
@@ -607,33 +625,32 @@ $('recordBtn').addEventListener('click', async () => {
 
   const canvasStream = canvas.captureStream(30);
 
-  // Audio via Web Audio API - works on iOS WebKit where
-  // video.captureStream() is not supported.
-  try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (AudioCtx) {
-      // Store at module level - a local const inside a try block gets
-      // garbage collected after the block exits, which is exactly why
-      // audio was silently dropping out after 3-5 seconds.
-      activeAudioCtx = new AudioCtx();
+  // Audio capture via a separate never-muted <audio> element.
+  // We cannot use videoEl because browsers don't decode audio for
+  // muted elements, so createMediaElementSource gives us silence.
+  // audioEl uses the same blob URL but was never muted.
+  if (audioEl) {
+    try {
+      activeAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
       await activeAudioCtx.resume();
 
+      // Reconnect to speakers: iOS suspends contexts that produce no
+      // audible output. Connecting to audioCtx.destination (speakers)
+      // alongside the capture destination keeps it alive.
       activeAudioCtx.addEventListener('statechange', () => {
         if (activeAudioCtx && activeAudioCtx.state === 'suspended') {
           activeAudioCtx.resume().catch(() => {});
         }
       });
 
-      videoEl.muted = false;
-
-      const source = activeAudioCtx.createMediaElementSource(videoEl);
+      const source = activeAudioCtx.createMediaElementSource(audioEl);
       const dest = activeAudioCtx.createMediaStreamDestination();
       source.connect(dest);
-      source.connect(activeAudioCtx.destination); // keeps iOS AudioContext alive
+      source.connect(activeAudioCtx.destination); // speakers: keeps iOS alive
       dest.stream.getAudioTracks().forEach(t => canvasStream.addTrack(t));
+    } catch (e) {
+      console.warn('Audio capture unavailable:', e.message);
     }
-  } catch (e) {
-    console.warn('Audio capture unavailable:', e.message);
   }
 
   // 1.5 Mbps cap: at 540x960 this produces ~5-6 MB per 30 seconds for
@@ -649,13 +666,17 @@ $('recordBtn').addEventListener('click', async () => {
   let duration = 0;
   const totalDuration = videoEl.duration || 30;
 
-  // Reset to start of clip for the recording pass
+  // Reset both elements to the start and play them in sync
   videoEl.loop = false;
   videoEl.muted = true;
   videoEl.currentTime = 0;
-  videoEl.play().catch(() => {});
+  if (audioEl) { audioEl.currentTime = 0; }
 
   recorder.start(100); // collect data every 100ms
+
+  // Play visual and audio together
+  videoEl.play().catch(() => {});
+  if (audioEl) audioEl.play().catch(() => {});
 
   const progressInterval = setInterval(() => {
     duration = videoEl.currentTime;
@@ -672,9 +693,11 @@ $('recordBtn').addEventListener('click', async () => {
     $('recordBtn').textContent = 'Render video';
     $('recordProgress').classList.remove('visible');
     $('recordFill').style.width = '0%';
+    // Stop audio playback
+    if (audioEl) { audioEl.pause(); audioEl.currentTime = 0; }
     videoEl.loop = true;
     videoEl.muted = true;
-    // Release the AudioContext now recording is done
+    // Release the AudioContext
     if (activeAudioCtx) {
       activeAudioCtx.close().catch(() => {});
       activeAudioCtx = null;
@@ -687,6 +710,7 @@ $('recordBtn').addEventListener('click', async () => {
   };
 
   videoEl.onended = () => {
+    if (audioEl) audioEl.pause();
     if (recorder.state !== 'inactive') recorder.stop();
   };
   // Safety fallback in case onended doesn't fire
