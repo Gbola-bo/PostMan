@@ -95,6 +95,24 @@ img { max-width: 100%; display: block; }
 .topbar .spacer { flex: 1; }
 .topbar .btn-text-link { font-size: 13px; color: var(--text-secondary); }
 
+/* Video pill button in the topbar — gradient pill matching the homepage CTA */
+.topbar-video-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: linear-gradient(90deg, #FF644F 0%, #9F356C 100%);
+  color: white;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+  min-height: 34px;
+  box-shadow: 0 3px 10px rgba(210,75,70,0.22);
+}
+.topbar-video-pill:active { opacity: 0.85; }
+
 /* ===== Layout shell ===== */
 .app-main {
   max-width: 720px;
