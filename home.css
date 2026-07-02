@@ -1,30 +1,23 @@
 /* ===== PostMann Homepage =====
-   Built from Figma layer data:
-   - Design canvas: 390px wide × ~870px tall
-   - Coral section: ~700px tall (80.5% of total)
-   - Cream section: ~170px tall (19.5%)
-
-   Pill positions use percentage of coral section dimensions
-   (390px wide × 700px tall) to scale across phone sizes.
-   Z-index order matches Figma layer panel exactly. */
+   Rebuilt from Figma screenshot reference.
+   Uses the white-card logo on the coral hero,
+   and the gradient CTA in the cream footer section. */
 
 .home-body {
   margin: 0;
   min-height: 100dvh;
-  background: #FAF3EF;
+  background: #FAF3EF; /* cream shows through before JS loads */
   -webkit-font-smoothing: antialiased;
 }
 
-/* Page wrapper */
+/* ---- Page wrapper: swipe-up exit transition ---- */
 .home-wrap {
   min-height: 100dvh;
   max-width: 430px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 0.36s ease-out;
+  transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.36s ease-out;
 }
 .home-wrap.is-leaving {
   transform: translateY(-10%);
@@ -32,172 +25,112 @@
 }
 
 /* ================================================================
-   CORAL HERO — everything positioned absolutely within this container
+   CORAL HERO SECTION
    ================================================================ */
 .home-hero {
   position: relative;
   flex: 1;
-  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   overflow: hidden;
+  /* Rounded bottom so the hero "sits" on the cream card below */
+  border-radius: 0 0 28px 28px;
+  /* Safe area at top for notch/island */
   padding-top: env(safe-area-inset-top);
+  z-index: 1;
 }
 
-/* z:0 — Base gradient rectangle
-   Gradient: #FF634F (0%) → #9E356C (100%) from Figma
-   Border-radius: 0 0 0 50px (ONLY bottom-left corner = 50, rest = 0) */
+/* SVG organic blobs: absolute, fills entire hero */
 .hero-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, #FF634F 0%, #9E356C 100%);
-  border-radius: 0 0 0 50px;
-  z-index: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
-/* z:1 — Background icon watermark
-   Figma: X=-173, Y=-228, opacity=22%
-   Size: ~420px to be partially visible from the corner */
-.hero-bg-icon {
-  position: absolute;
-  width: 420px;
-  height: 420px;
-  top: -228px;
-  left: -173px;
-  opacity: 0.22;
-  z-index: 1;
-  pointer-events: none;
-}
-
-/* z:2 — Pills
-   Figma: corner-radius=8, rect-opacity=60%
-   Positions as % of coral section (390px × 700px) */
-.format-pill {
-  position: absolute;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.58);
-  padding: 8px 22px;
-  white-space: nowrap;
-  z-index: 2;
-}
-.format-pill span {
-  font-family: "Funnel Display", -apple-system, sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  color: #C04044;
-  letter-spacing: -0.2px;
-}
-/* mp4: x=146/390=37.4%, y=473/700=67.6%, angle=-10.35° */
-.pill-mp4 {
-  left: 37.4%;
-  top: 67.6%;
-  transform: rotate(-10.35deg);
-  transform-origin: top left;
-}
-/* png: x=114/390=29.2%, y=509/700=72.7%, angle=1.6° */
-.pill-png {
-  left: 29.2%;
-  top: 72.7%;
-  transform: rotate(1.6deg);
-  transform-origin: top left;
-}
-/* gif: x=143/390=36.7%, y=536/700=76.6%, angle=-3.32° */
-.pill-gif {
-  left: 36.7%;
-  top: 76.6%;
-  transform: rotate(-3.32deg);
-  transform-origin: top left;
-}
-
-/* z:3 — Cursor: x=135/390=34.6%, y=549/700=78.4%, angle=-9.46°
-   Above pills, below wave rectangles (per Figma layer order) */
-.hero-cursor {
-  position: absolute;
-  width: 26px;
-  height: 26px;
-  left: 34.6%;
-  top: 78.4%;
-  transform: rotate(-9.46deg);
-  transform-origin: top left;
-  z-index: 3;
-  pointer-events: none;
-}
-
-/* z:4 — Wave rectangles (Rectangle 27 & 28 from Figma layer panel)
-   White fill at 25% opacity, rotated to create diagonal depth.
-   INTENTIONALLY above pills and cursor — this is what creates the
-   blended/washed look on the pills as seen in the Figma design. */
-.wave-rect {
-  position: absolute;
-  background: rgba(255, 255, 255, 1);
-  opacity: 0.25;
-  z-index: 4;
-  pointer-events: none;
-}
-/* Rectangle 28 — upper diagonal wave */
-.wave-1 {
-  width: 620px;
-  height: 195px;
-  top: -15px;
-  left: 90px;
-  transform: rotate(-24deg);
-  transform-origin: top left;
-}
-/* Rectangle 27 — lower diagonal wave */
-.wave-2 {
-  width: 580px;
-  height: 210px;
-  top: 200px;
-  left: -90px;
-  transform: rotate(-24deg);
-  transform-origin: top left;
-}
-
-/* z:5 — PostMann logo card (frontmost in coral section)
-   Figma: top=269px (269/700=38.4%), centered, width=328px (84.1%)
-   White-card logo SVG with a subtle drop shadow */
+/* Logo card: white-pill artwork sits in the upper center */
 .hero-logo {
-  position: absolute;
+  position: relative;
+  z-index: 2;
   width: 84%;
-  max-width: 328px;
-  top: 38.4%;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
-  filter: drop-shadow(0 8px 28px rgba(0,0,0,0.20));
-  pointer-events: none;
+  max-width: 320px;
+  /* Push down ~32% from top, then pills push the logo up naturally */
+  margin-top: 28%;
+  /* Slight shadow so the white card pops off the coral */
+  filter: drop-shadow(0 8px 28px rgba(0,0,0,0.18));
+}
+
+/* Pills container: pushes to the bottom of the flex hero */
+.hero-pills {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  padding-bottom: 40px;
+  width: 100%;
+}
+
+/* Each pill row: allows horizontal offset for the staircase feel */
+.pill-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+/* Staircase offsets — mirrors Figma cascade */
+.pill-row-1 { transform: translateX(-18px); }
+.pill-row-2 { transform: translateX(0px);   }
+.pill-row-3 { transform: translateX(14px);  }
+
+/* Pill shape: blush semi-transparent with salmon text */
+.pill-tag {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 220, 205, 0.28);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 100px;
+  padding: 11px 30px;
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(220, 80, 65, 0.90);
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+/* Cursor accent beside .gif pill */
+.hero-cursor {
+  width: 22px;
+  height: 22px;
+  transform: rotate(-8deg);
+  flex-shrink: 0;
 }
 
 /* ================================================================
    CREAM FOOTER SECTION
    ================================================================ */
 .home-footer {
+  /* Slightly overlaps the hero's rounded bottom so the join is seamless */
   position: relative;
-  z-index: 1;
-  flex-shrink: 0;
+  z-index: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 30px 24px calc(28px + env(safe-area-inset-bottom));
-  gap: 18px;
+  padding: 36px 28px calc(36px + env(safe-area-inset-bottom));
+  gap: 16px;
   background: #FAF3EF;
-}
-
-/* Subtle card behind tagline + button (from Figma design) */
-.footer-card {
-  width: 100%;
-  max-width: 260px;
-  background: rgba(218, 193, 178, 0.28);
-  border-radius: 14px;
-  padding: 16px 18px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
 }
 
 .footer-tagline {
   font-family: "Funnel Display", -apple-system, sans-serif;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 400;
   color: #2C2C2C;
+  text-align: center;
   line-height: 1.45;
   letter-spacing: -0.1px;
   margin: 0;
@@ -206,31 +139,36 @@
   font-weight: 700;
 }
 
-/* Gradient CTA button matching Figma gradient #FF634F → #9E356C */
+/* ---- Gradient CTA pill button ---- */
 .cta-btn {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 10px 10px 20px;
-  background: linear-gradient(90deg, #FF634F 0%, #9E356C 100%);
+  width: 100%;
+  max-width: 270px;
+  padding: 11px 11px 11px 24px;
+  background: linear-gradient(90deg, #FF644F 0%, #9F356C 100%);
   border-radius: 100px;
   color: white;
   font-family: "Funnel Display", -apple-system, sans-serif;
   font-size: 14px;
   font-weight: 700;
-  letter-spacing: -0.4px;
-  text-decoration: none;
-  box-shadow: 0 4px 18px rgba(210, 75, 70, 0.28);
+  letter-spacing: -0.5px;
+  box-shadow: 0 6px 22px rgba(210, 75, 70, 0.30);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
+  text-decoration: none;
 }
 .cta-btn:active {
   transform: scale(0.97);
-  box-shadow: 0 2px 8px rgba(210, 75, 70, 0.18);
+  box-shadow: 0 3px 10px rgba(210, 75, 70, 0.18);
 }
-.cta-label { flex: 1; }
+.cta-label {
+  flex: 1;
+}
+/* Icon circle on the right of the button */
 .cta-icon {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   background: rgba(255, 255, 255, 0.22);
   border-radius: 50%;
   display: flex;
@@ -238,9 +176,12 @@
   justify-content: center;
   flex-shrink: 0;
 }
-.cta-icon img { width: 16px; height: 16px; }
+.cta-icon img {
+  width: 18px;
+  height: 18px;
+}
 
-/* "template tool" underlined link in Figma coral color */
+/* ---- Underlined template tool link ---- */
 .footer-tool-link {
   font-family: "Funnel Display", -apple-system, sans-serif;
   font-size: 12px;
@@ -248,6 +189,7 @@
   color: #F66052;
   text-decoration: underline;
   letter-spacing: -0.3px;
+  padding: 6px 0;
   min-height: 44px;
   display: flex;
   align-items: center;
