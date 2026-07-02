@@ -92,6 +92,17 @@
   }
   document.getElementById('getStartedLink').addEventListener('click', e => go(e, 'app.html'));
   document.getElementById('templateToolLink').addEventListener('click', e => go(e, 'vet.html'));
+
+  // Browser back/forward restores this page from the bfcache exactly as it
+  // was at the moment of navigation - which, since go() fires the actual
+  // navigation mid-fade, means it comes back frozen with is-leaving still
+  // applied (opacity: 0, translated off-screen). That reads as a blank
+  // page even though the DOM is fully there. Clear it on restore.
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) {
+      wrap.classList.remove('is-leaving');
+    }
+  });
 </script>
 </body>
 </html>
