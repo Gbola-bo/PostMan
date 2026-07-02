@@ -146,6 +146,7 @@
 .headline-wrap .text-input {
   padding-right: 48px; /* room for the swatch */
 }
+.headline-textarea { resize: none; min-height: 72px; line-height: 1.4; padding-top: 10px; }
 .color-swatch {
   position: absolute;
   right: 10px;
@@ -313,7 +314,7 @@
       <!-- Headline + inline color swatch -->
       <div class="field-label" style="margin-top:14px;">Headline text</div>
       <div class="headline-wrap">
-        <input type="text" id="headlineInput" class="text-input" placeholder="Leave blank to skip">
+        <textarea id="headlineInput" class="text-input headline-textarea" placeholder="Leave blank to skip" rows="3"></textarea>
         <label class="color-swatch" id="colorSwatch" style="background:#ffffff;" title="Text colour">
           <input type="color" id="textColourInput" value="#ffffff">
         </label>
@@ -340,6 +341,8 @@
         </div>
         <div class="toolbar-sep"></div>
         <button type="button" class="tool-btn active" id="boldBtn" title="Bold" style="font-weight:800; font-size:14px;">B</button>
+        <button type="button" class="tool-btn" id="italicBtn" title="Italic" style="font-style:italic; font-size:14px;">I</button>
+        <button type="button" class="tool-btn" id="underlineBtn" title="Underline" style="text-decoration:underline; font-size:14px;">U</button>
       </div>
 
       <div class="controls-divider"></div>
@@ -412,6 +415,8 @@ let activeQuality = 'reg';
 let textSize      = 'small';
 let textAlign     = 'center';
 let textBold      = true;
+let textItalic    = false;
+let textUnderline = false;
 let recording     = false;
 let activeAudioCtx= null;
 
@@ -465,7 +470,7 @@ function applyCanvasSize() {
 // ---- Text helpers ----
 function getTextFontSize() {
   const { w } = getCanvasDims();
-  const base = { small: 0.10, medium: 0.13, large: 0.17 }[textSize];
+  const base = { small: 0.055, medium: 0.075, large: 0.10 }[textSize];
   return Math.round(w * base);
 }
 function getTextX(W) {
@@ -474,17 +479,41 @@ function getTextX(W) {
 }
 function ctxTextAlign() { return textAlign; }
 
-// ---- wrapText ----
-function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-  const words = text.split(' ');
-  let line = '', lines = [];
-  for (let w of words) {
-    const test = line ? line + ' ' + w : w;
-    if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = w; }
-    else line = test;
+// ---- getWrappedLines: split on \n then word-wrap each paragraph ----
+function getWrappedLines(text, maxWidth) {
+  const allLines = [];
+  for (const para of text.split('\n')) {
+    if (!para) { allLines.push(''); continue; }
+    const words = para.split(' ').filter(w => w);
+    if (!words.length) { allLines.push(''); continue; }
+    let line = '';
+    for (const word of words) {
+      const test = line ? line + ' ' + word : word;
+      if (ctx.measureText(test).width > maxWidth && line) { allLines.push(line); line = word; }
+      else line = test;
+    }
+    allLines.push(line);
   }
-  if (line) lines.push(line);
-  lines.forEach((l, i) => ctx.fillText(l, x, y + i * lineHeight));
+  return allLines;
+}
+
+// drawTextBlock: renders lines top-down from startY, draws underline if active
+function drawTextBlock(lines, x, startY, lineHeight, fs) {
+  lines.forEach((l, i) => {
+    const ly = startY + i * lineHeight;
+    ctx.fillText(l, x, ly);
+    if (textUnderline && l.trim()) {
+      const tw = ctx.measureText(l).width;
+      let lx = x;
+      if (ctx.textAlign === 'center') lx = x - tw / 2;
+      else if (ctx.textAlign === 'right') lx = x - tw;
+      ctx.save();
+      ctx.strokeStyle = ctx.fillStyle;
+      ctx.lineWidth = Math.max(1, Math.round(fs * 0.055));
+      ctx.beginPath(); ctx.moveTo(lx, ly + Math.round(fs * 0.12)); ctx.lineTo(lx + tw, ly + Math.round(fs * 0.12)); ctx.stroke();
+      ctx.restore();
+    }
+  });
 }
 
 // ---- object-fit:cover for canvas ----
@@ -507,25 +536,31 @@ function drawVideoCover(el, dx, dy, dw, dh) {
 
 // ---- Template drawing ----
 function drawOverlay(W, H, headline, colour) {
-  // Solid top bar — #ED0D6E, no logo
-  const topH = Math.round(H * 0.06);
+  // Bottom bar — #ED0D6E, slim (2.5% of height)
+  const barH = Math.round(H * 0.025);
   ctx.fillStyle = '#ED0D6E';
-  ctx.fillRect(0, 0, W, topH);
+  ctx.fillRect(0, H - barH, W, barH);
   if (headline && headline.trim()) {
-    const scrimH = H * 0.48;
+    const scrimH = H * 0.52;
     const scrim = ctx.createLinearGradient(0, H - scrimH, 0, H);
     scrim.addColorStop(0, 'rgba(0,0,0,0)'); scrim.addColorStop(1, 'rgba(0,0,0,0.78)');
     ctx.fillStyle = scrim;
     ctx.fillRect(0, H - scrimH, W, scrimH);
     const fs = getTextFontSize();
+    const style = textItalic ? 'italic ' : '';
     const weight = textBold ? '700' : '400';
-    ctx.font = `${weight} ${fs}px "Funnel Display", sans-serif`;
+    ctx.font = `${style}${weight} ${fs}px "Funnel Display", sans-serif`;
     ctx.fillStyle = colour || '#ffffff';
     ctx.textAlign = ctxTextAlign();
-    ctx.textBaseline = 'bottom';
+    ctx.textBaseline = 'top';
     const x = getTextX(W);
     const pad = Math.round(W * 0.06);
-    wrapText(ctx, headline.trim(), x, H - Math.round(H * 0.04), W - pad * 2, Math.round(fs * 1.25));
+    const lineH = Math.round(fs * 1.3);
+    const lines = getWrappedLines(headline.trim(), W - pad * 2);
+    // Position block so its bottom sits just above the bar
+    const blockH = lines.length * lineH;
+    const startY = H - barH - Math.round(H * 0.025) - blockH;
+    drawTextBlock(lines, x, startY, lineH, fs);
   }
 }
 
@@ -539,7 +574,7 @@ function drawTemplateFramed(W, H, headline, colour) {
   if (!videoEl) return drawBlankFrame(W, H);
   ctx.fillStyle = '#fafaf9'; ctx.fillRect(0, 0, W, H);
   const topH = Math.round(H * 0.08);
-  ctx.fillStyle = '#ED0D6E'; ctx.fillRect(0, 0, W, topH); // solid, no logo
+  ctx.fillStyle = '#fafaf8'; ctx.fillRect(0, 0, W, topH); // neutral top space (bar moved to bottom)
   const pad = Math.round(W * 0.04);
   const vX = pad, vY = topH + pad;
   const vW = W - pad * 2;
@@ -551,23 +586,24 @@ function drawTemplateFramed(W, H, headline, colour) {
   ctx.restore();
   ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.roundRect(vX, vY, vW, vH, r); ctx.stroke();
+  // Bottom bar
+  const barH = Math.round(H * 0.025);
+  ctx.fillStyle = '#ED0D6E'; ctx.fillRect(0, H - barH, W, barH);
   if (headline && headline.trim()) {
     const fs = getTextFontSize();
+    const style = textItalic ? 'italic ' : '';
     const weight = textBold ? '700' : '400';
-    ctx.font = `${weight} ${fs}px "Funnel Display", sans-serif`;
+    ctx.font = `${style}${weight} ${fs}px "Funnel Display", sans-serif`;
     ctx.fillStyle = colour || '#171717';
     ctx.textAlign = ctxTextAlign();
     ctx.textBaseline = 'top';
     const x = getTextX(W);
     const pad2 = Math.round(W * 0.06);
-    wrapText(ctx, headline.trim(), x, vY + vH + Math.round(H * 0.03), W - pad2 * 2, Math.round(fs * 1.25));
+    const lineH = Math.round(fs * 1.3);
+    const lines = getWrappedLines(headline.trim(), W - pad2 * 2);
+    const startY = vY + vH + Math.round(H * 0.025);
+    drawTextBlock(lines, x, startY, lineH, fs);
   }
-  const dotY = H - Math.round(H * 0.04);
-  ['#ED0D6E','#fb3662','#9d356c'].forEach((c, i) => {
-    ctx.fillStyle = c; ctx.beginPath();
-    ctx.arc(W / 2 + (i - 1) * Math.round(W * 0.06), dotY, Math.round(W * 0.016), 0, Math.PI * 2);
-    ctx.fill();
-  });
 }
 
 function drawBlankFrame(W, H) {
@@ -638,10 +674,18 @@ $('alignPicker').querySelectorAll('.tool-btn').forEach(btn => {
   });
 });
 
-// Bold toggle
+// Bold / italic / underline toggles
 $('boldBtn').addEventListener('click', () => {
   textBold = !textBold;
   $('boldBtn').classList.toggle('active', textBold);
+});
+$('italicBtn').addEventListener('click', () => {
+  textItalic = !textItalic;
+  $('italicBtn').classList.toggle('active', textItalic);
+});
+$('underlineBtn').addEventListener('click', () => {
+  textUnderline = !textUnderline;
+  $('underlineBtn').classList.toggle('active', textUnderline);
 });
 
 // Inline color swatch - keep swatch background in sync with picker value
