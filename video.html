@@ -252,7 +252,6 @@
     <img src="assets/logo-full.svg" alt="PostMann" class="video-topbar-logo">
   </a>
   <div class="spacer"></div>
-  <a href="app.html" class="btn-text-link">Templates</a>
 </header>
 
 <main class="video-main">
@@ -404,13 +403,14 @@ function getCanvasDims() {
 // ---- State ----
 let videoEl       = null;
 let audioEl       = null;
+let blobUrl       = null;  // stored so we can create a fresh audioEl per render pass
 let logoImg       = null;
 let animFrame     = null;
 let activeRatio   = 'story';
 let activeTemplate= 'fullbleed';
 let activeQuality = 'reg';
-let textSize      = 'small';    // 'small' | 'medium' | 'large'
-let textAlign     = 'center';   // 'left' | 'center' | 'right'
+let textSize      = 'small';
+let textAlign     = 'center';
 let textBold      = true;
 let recording     = false;
 let activeAudioCtx= null;
@@ -487,24 +487,36 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
   lines.forEach((l, i) => ctx.fillText(l, x, y + i * lineHeight));
 }
 
+// ---- object-fit:cover for canvas ----
+// Crops video to fill the target rect without distortion (like CSS object-fit:cover).
+function drawVideoCover(el, dx, dy, dw, dh) {
+  const vw = el.videoWidth  || 1;
+  const vh = el.videoHeight || 1;
+  const videoAR  = vw / vh;
+  const targetAR = dw / dh;
+  let sx, sy, sw, sh;
+  if (videoAR > targetAR) {
+    sh = vh; sw = Math.round(vh * targetAR);
+    sx = Math.round((vw - sw) / 2); sy = 0;
+  } else {
+    sw = vw; sh = Math.round(vw / targetAR);
+    sx = 0; sy = Math.round((vh - sh) / 2);
+  }
+  ctx.drawImage(el, sx, sy, sw, sh, dx, dy, dw, dh);
+}
+
 // ---- Template drawing ----
 function drawOverlay(W, H, headline, colour) {
+  // Solid top bar — #ED0D6E, no logo
   const topH = Math.round(H * 0.06);
-  const grd = ctx.createLinearGradient(0, 0, W, 0);
-  grd.addColorStop(0, '#ff684d'); grd.addColorStop(0.45, '#fb3662'); grd.addColorStop(1, '#9d356c');
-  ctx.fillStyle = grd;
+  ctx.fillStyle = '#ED0D6E';
   ctx.fillRect(0, 0, W, topH);
-  if (logoImg) {
-    const lh = Math.round(topH * 0.62);
-    ctx.drawImage(logoImg, Math.round(W * 0.04), Math.round((topH - lh) / 2), lh, lh);
-  }
   if (headline && headline.trim()) {
     const scrimH = H * 0.48;
     const scrim = ctx.createLinearGradient(0, H - scrimH, 0, H);
     scrim.addColorStop(0, 'rgba(0,0,0,0)'); scrim.addColorStop(1, 'rgba(0,0,0,0.78)');
     ctx.fillStyle = scrim;
     ctx.fillRect(0, H - scrimH, W, scrimH);
-
     const fs = getTextFontSize();
     const weight = textBold ? '700' : '400';
     ctx.font = `${weight} ${fs}px "Funnel Display", sans-serif`;
@@ -519,29 +531,23 @@ function drawOverlay(W, H, headline, colour) {
 
 function drawTemplateFullBleed(W, H, headline, colour) {
   if (!videoEl) return drawBlankFrame(W, H);
-  ctx.drawImage(videoEl, 0, 0, W, H);
+  drawVideoCover(videoEl, 0, 0, W, H); // cover-fit: no distortion
   drawOverlay(W, H, headline, colour);
 }
 
 function drawTemplateFramed(W, H, headline, colour) {
   if (!videoEl) return drawBlankFrame(W, H);
   ctx.fillStyle = '#fafaf9'; ctx.fillRect(0, 0, W, H);
-  const topH = Math.round(H * 0.1);
-  const grd = ctx.createLinearGradient(0, 0, W, 0);
-  grd.addColorStop(0, '#ff684d'); grd.addColorStop(0.45, '#fb3662'); grd.addColorStop(1, '#9d356c');
-  ctx.fillStyle = grd; ctx.fillRect(0, 0, W, topH);
-  if (logoImg) {
-    const lh = Math.round(topH * 0.62);
-    ctx.drawImage(logoImg, Math.round(W * 0.05), Math.round((topH - lh) / 2), lh, lh);
-  }
+  const topH = Math.round(H * 0.08);
+  ctx.fillStyle = '#ED0D6E'; ctx.fillRect(0, 0, W, topH); // solid, no logo
   const pad = Math.round(W * 0.04);
   const vX = pad, vY = topH + pad;
   const vW = W - pad * 2;
-  const vH = Math.min(H * 0.56, vW * ((videoEl.videoHeight || 1) / (videoEl.videoWidth || 1)));
+  const vH = Math.min(Math.round(vW * 0.75), H - vY - Math.round(H * 0.18));
   const r = Math.round(W * 0.04);
   ctx.save();
   ctx.beginPath(); ctx.roundRect(vX, vY, vW, vH, r); ctx.clip();
-  ctx.drawImage(videoEl, vX, vY, vW, vH);
+  drawVideoCover(videoEl, vX, vY, vW, vH); // cover-fit inside frame too
   ctx.restore();
   ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.roundRect(vX, vY, vW, vH, r); ctx.stroke();
@@ -557,7 +563,7 @@ function drawTemplateFramed(W, H, headline, colour) {
     wrapText(ctx, headline.trim(), x, vY + vH + Math.round(H * 0.03), W - pad2 * 2, Math.round(fs * 1.25));
   }
   const dotY = H - Math.round(H * 0.04);
-  ['#ff684d','#fb3662','#9d356c'].forEach((c, i) => {
+  ['#ED0D6E','#fb3662','#9d356c'].forEach((c, i) => {
     ctx.fillStyle = c; ctx.beginPath();
     ctx.arc(W / 2 + (i - 1) * Math.round(W * 0.06), dotY, Math.round(W * 0.016), 0, Math.PI * 2);
     ctx.fill();
@@ -653,19 +659,19 @@ $('videoFileInput').addEventListener('change', (e) => {
   $('canvasPlaceholder').style.display = 'none';
   applyCanvasSize();
 
-  const url = URL.createObjectURL(file);
+  // Store blob URL so we can create a fresh audioEl on EACH recording pass.
+  // createMediaElementSource() permanently consumes an element - reusing it
+  // across multiple AudioContexts silently drops audio after the first render.
+  if (blobUrl) URL.revokeObjectURL(blobUrl);
+  blobUrl = URL.createObjectURL(file);
 
   if (videoEl) { videoEl.pause(); videoEl.src = ''; }
   videoEl = document.createElement('video');
   videoEl.muted = true; videoEl.loop = true; videoEl.playsInline = true;
   videoEl.preload = 'auto'; videoEl.crossOrigin = 'anonymous';
-  videoEl.src = url;
+  videoEl.src = blobUrl;
   videoEl.play().catch(() => {});
-
-  if (audioEl) { audioEl.pause(); audioEl.src = ''; }
-  audioEl = document.createElement('audio');
-  audioEl.src = url; audioEl.preload = 'auto'; audioEl.loop = false;
-  audioEl.play().then(() => { audioEl.pause(); audioEl.currentTime = 0; }).catch(() => {});
+  // audioEl is now created fresh at the start of each recording pass, not here
 
   startPreviewLoop();
   $('recordBtn').disabled = false;
@@ -674,13 +680,25 @@ $('videoFileInput').addEventListener('change', (e) => {
 
 // ---- Recording ----
 $('recordBtn').addEventListener('click', async () => {
-  if (recording || !videoEl) return;
+  if (recording || !videoEl || !blobUrl) return;
 
   const mimeType = bestMimeType();
   if (!HTMLCanvasElement.prototype.captureStream) {
     alert('canvas.captureStream() not supported. Try Chrome on Android or Safari on iOS 14.5+.');
     return;
   }
+
+  // Create a FRESH audioEl for this pass - createMediaElementSource() permanently
+  // consumes an element, so the same element cannot be used with a new AudioContext
+  // on a second render. A fresh element from the same blobUrl has never been consumed.
+  if (audioEl) { try { audioEl.pause(); } catch(_) {} audioEl.src = ''; }
+  audioEl = document.createElement('audio');
+  audioEl.src = blobUrl;
+  audioEl.preload = 'auto';
+  // Unlock iOS autoplay SYNCHRONOUSLY before any await - must be in the user gesture
+  const audioUnlock = audioEl.play()
+    .then(() => { audioEl.pause(); audioEl.currentTime = 0; })
+    .catch(() => {});
 
   // Apply the correct canvas size before recording
   applyCanvasSize();
@@ -691,22 +709,23 @@ $('recordBtn').addEventListener('click', async () => {
   $('recordBtn').textContent = 'Rendering...';
   $('recordProgress').classList.add('visible');
 
+  // Wait for the iOS unlock to resolve before setting up Web Audio
+  await audioUnlock;
+
   const canvasStream = canvas.captureStream(30);
 
-  if (audioEl) {
-    try {
-      activeAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      await activeAudioCtx.resume();
-      activeAudioCtx.addEventListener('statechange', () => {
-        if (activeAudioCtx && activeAudioCtx.state === 'suspended') activeAudioCtx.resume().catch(() => {});
-      });
-      const source = activeAudioCtx.createMediaElementSource(audioEl);
-      const dest = activeAudioCtx.createMediaStreamDestination();
-      source.connect(dest);
-      source.connect(activeAudioCtx.destination);
-      dest.stream.getAudioTracks().forEach(t => canvasStream.addTrack(t));
-    } catch (e) { console.warn('Audio capture unavailable:', e.message); }
-  }
+  try {
+    activeAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    await activeAudioCtx.resume();
+    activeAudioCtx.addEventListener('statechange', () => {
+      if (activeAudioCtx && activeAudioCtx.state === 'suspended') activeAudioCtx.resume().catch(() => {});
+    });
+    const source = activeAudioCtx.createMediaElementSource(audioEl);
+    const dest = activeAudioCtx.createMediaStreamDestination();
+    source.connect(dest);
+    source.connect(activeAudioCtx.destination);
+    dest.stream.getAudioTracks().forEach(t => canvasStream.addTrack(t));
+  } catch (e) { console.warn('Audio capture unavailable:', e.message); }
 
   const recorderOpts = { videoBitsPerSecond: BITRATES[activeQuality] };
   if (mimeType) recorderOpts.mimeType = mimeType;
@@ -716,11 +735,11 @@ $('recordBtn').addEventListener('click', async () => {
 
   const totalDuration = videoEl.duration || 30;
   videoEl.loop = false; videoEl.muted = true; videoEl.currentTime = 0;
-  if (audioEl) audioEl.currentTime = 0;
+  audioEl.currentTime = 0;
 
   recorder.start(100);
   videoEl.play().catch(() => {});
-  if (audioEl) audioEl.play().catch(() => {});
+  audioEl.play().catch(() => {});
 
   const progressInterval = setInterval(() => {
     const pct = Math.min(100, (videoEl.currentTime / totalDuration) * 100);
