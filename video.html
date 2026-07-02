@@ -261,7 +261,7 @@
     <!-- Left: canvas preview -->
     <div class="video-preview-col">
       <div class="canvas-wrap" id="canvasWrap">
-        <canvas id="previewCanvas" width="1080" height="1920"></canvas>
+        <canvas id="previewCanvas" width="720" height="1280"></canvas>
         <div class="canvas-placeholder" id="canvasPlaceholder">
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="3"/><polygon points="10,8 16,12 10,16"/></svg>
           <p>Upload a video to see your preview here</p>
@@ -311,7 +311,7 @@
       <div class="controls-divider"></div>
 
       <div class="action-row">
-        <button type="button" id="recordBtn" class="btn-primary" disabled>Record video</button>
+        <button type="button" id="recordBtn" class="btn-primary" disabled>Render video</button>
         <button type="button" id="coverBtn" class="btn-secondary" disabled>Save cover PNG</button>
       </div>
 
@@ -337,7 +337,7 @@
 const $ = id => document.getElementById(id);
 const canvas = $('previewCanvas');
 const ctx = canvas.getContext('2d');
-const W = 1080, H = 1920;
+const W = 720, H = 1280;
 canvas.width = W;
 canvas.height = H;
 
@@ -362,17 +362,18 @@ loadLogo();
 function checkSupport() {
   const note = $('supportNote');
   const lines = [];
-  if (!window.MediaRecorder) lines.push('⚠️ MediaRecorder not supported in this browser — video recording won\'t work. Try Chrome or Edge.');
-  if (!HTMLCanvasElement.prototype.captureStream) lines.push('⚠️ canvas.captureStream() not supported — try Chrome on Android.');
-  if (lines.length === 0) {
-    // Check what MIME types are available
+  if (!window.MediaRecorder) {
+    lines.push('⚠️ MediaRecorder not supported — video rendering won\'t work. Try Chrome, Edge, or Safari (iOS 14.5+).');
+  } else if (!HTMLCanvasElement.prototype.captureStream) {
+    lines.push('⚠️ canvas.captureStream() not supported — try Chrome on Android or update to iOS 14.5+.');
+  } else {
     const webm = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ||
-                  MediaRecorder.isTypeSupported('video/webm;codecs=vp8') ||
-                  MediaRecorder.isTypeSupported('video/webm');
+                 MediaRecorder.isTypeSupported('video/webm;codecs=vp8') ||
+                 MediaRecorder.isTypeSupported('video/webm');
     const mp4  = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') ||
                  MediaRecorder.isTypeSupported('video/mp4');
-    lines.push(`✓ Recording supported — format: ${mp4 ? 'MP4' : webm ? 'WebM' : 'browser default'}`);
-    lines.push('Note: audio in exported video depends on browser/device.');
+    lines.push(`✓ Rendering supported — output format: ${mp4 ? 'MP4' : webm ? 'WebM' : 'browser default'}`);
+    lines.push('Audio is captured via Web Audio API (works on iOS). Output size is ~2.5 Mbps — a 30s clip ≈ 9 MB.');
   }
   note.textContent = lines.join(' ');
 }
@@ -589,46 +590,49 @@ $('recordBtn').addEventListener('click', async () => {
 
   const mimeType = bestMimeType();
   if (!HTMLCanvasElement.prototype.captureStream) {
-    alert('canvas.captureStream() is not supported in this browser. Try Chrome on Android or desktop Chrome/Edge.');
+    alert('canvas.captureStream() is not supported in this browser. Try Chrome or Safari on iOS 14.5+, or Chrome on Android.');
+    recording = false;
+    $('recordBtn').disabled = false;
+    $('recordBtn').textContent = 'Render video';
     return;
   }
 
+  // Canvas stream for video frames
   recording = true;
   $('canvasWrap').classList.add('recording');
   $('recordBtn').disabled = true;
-  $('recordBtn').textContent = 'Recording...';
+  $('recordBtn').textContent = 'Rendering...';
   $('recordProgress').classList.add('visible');
 
-  // Unmute for the capture stream (we need to set up audio separately
-  // since muted video elements don't expose audio tracks)
-  let captureStream;
+  const canvasStream = canvas.captureStream(30);
+
+  // Audio via Web Audio API - works on iOS WebKit where
+  // video.captureStream() is not supported. AudioContext routes
+  // the video's audio track to a MediaStream destination without
+  // requiring captureStream() at all.
   try {
-    // Try to create an unmuted version for audio
-    const audioVideo = document.createElement('video');
-    audioVideo.src = videoEl.src;
-    audioVideo.currentTime = 0;
-    audioVideo.playsInline = true;
-    await new Promise(r => { audioVideo.onloadeddata = r; audioVideo.onerror = r; });
-
-    const canvasStream = canvas.captureStream(30);
-    const audioStream = audioVideo.captureStream
-      ? audioVideo.captureStream()
-      : audioVideo.mozCaptureStream
-      ? audioVideo.mozCaptureStream()
-      : null;
-
-    const tracks = [...canvasStream.getTracks()];
-    if (audioStream) {
-      audioStream.getAudioTracks().forEach(t => tracks.push(t));
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      const audioCtx = new AudioCtx();
+      await audioCtx.resume(); // iOS requires explicit resume inside a user gesture
+      // createMediaElementSource works even when the video element is muted -
+      // muted only controls the speaker output, not the underlying audio track
+      const source = audioCtx.createMediaElementSource(videoEl);
+      const dest = audioCtx.createMediaStreamDestination();
+      source.connect(dest); // route to capture stream (silent to user)
+      dest.stream.getAudioTracks().forEach(t => canvasStream.addTrack(t));
     }
-    captureStream = new MediaStream(tracks);
-    audioVideo.play().catch(() => {});
   } catch (e) {
-    // Fall back to canvas-only (no audio)
-    captureStream = canvas.captureStream(30);
+    // No audio available - continue with video-only
+    console.warn('Audio capture unavailable:', e.message);
   }
 
-  const recorder = new MediaRecorder(captureStream, mimeType ? { mimeType } : {});
+  // 2.5 Mbps cap: keeps a 30-second clip around 9-10 MB at 720x1280,
+  // matching the size of a typical compressed source video rather than
+  // bloating to 60 MB which is what uncapped canvas recording produces.
+  const recorderOpts = { videoBitsPerSecond: 2_500_000 };
+  if (mimeType) recorderOpts.mimeType = mimeType;
+  const recorder = new MediaRecorder(canvasStream, recorderOpts);
   const chunks = [];
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
@@ -655,7 +659,7 @@ $('recordBtn').addEventListener('click', async () => {
     recording = false;
     $('canvasWrap').classList.remove('recording');
     $('recordBtn').disabled = false;
-    $('recordBtn').textContent = 'Record video';
+    $('recordBtn').textContent = 'Render video';
     $('recordProgress').classList.remove('visible');
     $('recordFill').style.width = '0%';
     videoEl.loop = true;
