@@ -16,7 +16,6 @@
     <img src="assets/logo-full.svg" alt="PostMann" class="topbar-logo">
   </a>
   <div class="spacer"></div>
-  <a href="video.html" class="btn-text-link" style="margin-right:10px;">Video</a>
   <a href="vet.html" class="btn-text-link">Template tool</a>
 </header>
 
@@ -34,7 +33,7 @@
   <section id="screen-form" class="hidden">
     <a href="#" id="backToDashboard" class="back-link">&larr; Back to templates</a>
     <h1 class="page-title" id="formTemplateName">Template</h1>
-    <p class="page-subtitle">Swipe or use the arrows to move between slides.</p>
+    <p class="page-subtitle">Swipe or tap the arrows to move between slides.</p>
 
     <div id="middleCountRow" class="middle-count-row hidden">
       <label class="field-label" style="margin:0;" id="middleCountLabel">How many slides?</label>
@@ -54,7 +53,7 @@
   <!-- ===== Screen: Generating ===== -->
   <section id="screen-generating" class="hidden">
     <h1 class="page-title">Generating your design</h1>
-    <p class="page-subtitle">This can take a minute or more, especially with animated slides. Please don't close this tab.</p>
+    <p class="page-subtitle">This can take a minute. Please don't close this tab.</p>
     <div class="progress-bar-track"><div id="progressFill" class="progress-bar-fill" style="width:0%"></div></div>
     <div id="statusLog" class="status-log"></div>
   </section>
@@ -63,14 +62,13 @@
   <section id="screen-results" class="hidden">
     <a href="#" id="backToFormFromResults" class="back-link">&larr; Back to editing</a>
     <h1 class="page-title">Your designs are ready</h1>
-    <p class="page-subtitle">Download each slide, or all of them at once.</p>
+    <p class="page-subtitle">Download individually or all at once.</p>
 
     <div class="results-action-row">
       <button type="button" id="downloadAllBtn" class="btn-secondary hidden">Download all (.zip)</button>
       <button type="button" id="exportToDriveBtn" class="btn-secondary hidden">Export to Drive</button>
     </div>
 
-    <!-- Inline folder-naming panel - hidden until "Export to Drive" is tapped -->
     <div id="driveNamePanel" class="drive-name-panel hidden">
       <label class="field-label" style="margin-top:0;">Folder name</label>
       <div class="drive-name-row">
@@ -79,7 +77,6 @@
       </div>
     </div>
 
-    <!-- Result card - hidden until export completes -->
     <div id="driveResultCard" class="drive-result-card hidden">
       <div class="drive-result-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -97,7 +94,7 @@
 
 </main>
 
-<!-- ===== Crop modal (shared across all slide fields) ===== -->
+<!-- ===== Crop modal ===== -->
 <div id="cropModalOverlay" class="modal-overlay">
   <div class="modal-card">
     <h3>Choose what part of your photo shows here</h3>
