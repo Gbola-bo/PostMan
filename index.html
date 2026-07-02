@@ -13,37 +13,49 @@
 <body class="home-body">
 
 <div class="home-stage">
-  <div class="home-pill home-pill-1">Posts</div>
-  <div class="home-pill home-pill-2">Gist</div>
-  <div class="home-pill home-pill-3">Content</div>
-  <img src="assets/cursor-accent.svg" alt="" class="home-cursor home-cursor-1">
 
-  <img src="assets/logo-full.svg" alt="PostMann" class="home-logo">
-
-  <div class="home-pill home-pill-4">Carousel</div>
-  <img src="assets/cursor-accent.svg" alt="" class="home-cursor home-cursor-2">
-  <div class="home-pill home-pill-5">GIF</div>
-  <div class="home-pill home-pill-6">.PNG</div>
-
-  <div class="home-actions">
-    <a href="app.html" class="home-action-link" id="getStartedLink">Get Started</a>
-    <a href="vet.html" class="home-action-link home-action-secondary" id="templateToolLink">Template tool</a>
+  <div class="home-orbit">
+    <div class="home-pill home-pill-1">Posts</div>
+    <div class="home-pill home-pill-2">Gist</div>
+    <div class="home-pill home-pill-3">Content</div>
+    <img src="assets/cursor-accent.svg" alt="" class="home-cursor home-cursor-1">
+    <img src="assets/logo-full.svg" alt="PostMann" class="home-logo">
+    <div class="home-pill home-pill-4">Carousel</div>
+    <img src="assets/cursor-accent.svg" alt="" class="home-cursor home-cursor-2">
+    <div class="home-pill home-pill-5">GIF</div>
+    <div class="home-pill home-pill-6">Video</div>
   </div>
+
+  <div class="home-bottom">
+    <p class="home-tagline">Ready-to-post content,<br>in seconds.</p>
+
+    <div class="home-ctas">
+      <a href="app.html" class="home-btn-primary" id="getStartedLink">
+        Get Started
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+      <a href="video.html" class="home-btn-secondary" id="videoLink">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Video
+      </a>
+    </div>
+
+    <a href="vet.html" class="home-btn-ghost" id="templateToolLink">Template tool</a>
+  </div>
+
 </div>
 
 <script>
-  // Plays a clean swipe-up-and-fade exit before navigating, instead of
-  // the page just jumping. Applied to both links so the experience feels
-  // consistent regardless of which one is tapped.
-  const EXIT_MS = 420;
+  const EXIT_MS = 400;
   const stage = document.querySelector('.home-stage');
-  function navigateWithExit(e, href) {
+  function go(e, href) {
     e.preventDefault();
     stage.classList.add('is-leaving');
     setTimeout(() => { window.location.href = href; }, EXIT_MS);
   }
-  document.getElementById('getStartedLink').addEventListener('click', (e) => navigateWithExit(e, 'app.html'));
-  document.getElementById('templateToolLink').addEventListener('click', (e) => navigateWithExit(e, 'vet.html'));
+  document.getElementById('getStartedLink').addEventListener('click', e => go(e, 'app.html'));
+  document.getElementById('videoLink').addEventListener('click', e => go(e, 'video.html'));
+  document.getElementById('templateToolLink').addEventListener('click', e => go(e, 'vet.html'));
 </script>
 </body>
 </html>
