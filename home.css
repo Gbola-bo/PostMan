@@ -43,17 +43,12 @@
 }
 
 /* z:0 — Base gradient rectangle
-   Gradient: #FF634F (0%) → #9E356C (100%) from Figma.
-   In Figma the 100% handle is positioned BELOW the coral section bottom,
-   meaning the visible area only reaches ~87% of the gradient.
-   #AF3C68 = lerp(#FF634F, #9E356C, 0.87) = the colour the coral section
-   bottom actually shows in the Figma design (warm rose, not deep wine).
-   Direction 162° ≈ mostly top-to-bottom with subtle leftward tilt,
-   matching the gradient handle positions visible in the Figma screenshot. */
+   Gradient: #FF634F (0%) → #9E356C (100%) from Figma
+   Border-radius: 0 0 0 50px (ONLY bottom-left corner = 50, rest = 0) */
 .hero-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(162deg, #FF634F 0%, #AF3C68 100%);
+  background: linear-gradient(135deg, #FF634F 0%, #9E356C 100%);
   border-radius: 0 0 0 50px;
   z-index: 0;
 }
@@ -63,8 +58,8 @@
    Size: ~420px to be partially visible from the corner */
 .hero-bg-icon {
   position: absolute;
-  width: 360px;
-  height: 360px;
+  width: 420px;
+  height: 420px;
   top: -228px;
   left: -173px;
   opacity: 0.22;
@@ -137,25 +132,22 @@
   z-index: 4;
   pointer-events: none;
 }
-/* Rectangle 28 — upper wave.
-   1200px wide keeps BOTH left+right edges off the 390px canvas, so no
-   visible hard edge — only the smooth interior of the rotated rect shows.
-   This is what creates the organic, band-free look in the Figma design. */
+/* Rectangle 28 — upper diagonal wave */
 .wave-1 {
-  width: 1200px;
-  height: 270px;
-  top: -70px;
-  left: -400px;
-  transform: rotate(-20deg);
+  width: 620px;
+  height: 195px;
+  top: -15px;
+  left: 90px;
+  transform: rotate(-24deg);
   transform-origin: top left;
 }
-/* Rectangle 27 — lower wave, covering the pill + lower area */
+/* Rectangle 27 — lower diagonal wave */
 .wave-2 {
-  width: 1200px;
-  height: 260px;
-  top: 290px;
-  left: -480px;
-  transform: rotate(-20deg);
+  width: 580px;
+  height: 210px;
+  top: 200px;
+  left: -90px;
+  transform: rotate(-24deg);
   transform-origin: top left;
 }
 
