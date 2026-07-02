@@ -346,6 +346,7 @@ let logoImg = null;       // preloaded logo image
 let animFrame = null;     // active requestAnimationFrame handle
 let activeTemplate = 'fullbleed';
 let recording = false;
+let activeAudioCtx = null; // kept at module level so GC can't collect it mid-recording
 
 // ---- Preload the logo ----
 function loadLogo() {
@@ -611,28 +612,24 @@ $('recordBtn').addEventListener('click', async () => {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (AudioCtx) {
-      const audioCtx = new AudioCtx();
-      await audioCtx.resume();
+      // Store at module level - a local const inside a try block gets
+      // garbage collected after the block exits, which is exactly why
+      // audio was silently dropping out after 3-5 seconds.
+      activeAudioCtx = new AudioCtx();
+      await activeAudioCtx.resume();
 
-      // iOS suspends AudioContext after a few seconds when it thinks
-      // the context is idle. It considers a context idle when nothing
-      // is connected to audioCtx.destination (the speakers). Fix:
-      // connect to BOTH the capture destination AND the speakers.
-      // The user hears the video during the render pass anyway, so
-      // this is fine UX. Also add a statechange listener that resumes
-      // immediately if iOS suspends it mid-render.
-      audioCtx.addEventListener('statechange', () => {
-        if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      activeAudioCtx.addEventListener('statechange', () => {
+        if (activeAudioCtx && activeAudioCtx.state === 'suspended') {
+          activeAudioCtx.resume().catch(() => {});
+        }
       });
 
-      // Unmute the video for this pass - iOS needs the element to
-      // actively play audio for the Web Audio routing to stay connected
       videoEl.muted = false;
 
-      const source = audioCtx.createMediaElementSource(videoEl);
-      const dest = audioCtx.createMediaStreamDestination();
+      const source = activeAudioCtx.createMediaElementSource(videoEl);
+      const dest = activeAudioCtx.createMediaStreamDestination();
       source.connect(dest);
-      source.connect(audioCtx.destination); // keeps iOS AudioContext alive
+      source.connect(activeAudioCtx.destination); // keeps iOS AudioContext alive
       dest.stream.getAudioTracks().forEach(t => canvasStream.addTrack(t));
     }
   } catch (e) {
@@ -677,6 +674,11 @@ $('recordBtn').addEventListener('click', async () => {
     $('recordFill').style.width = '0%';
     videoEl.loop = true;
     videoEl.muted = true;
+    // Release the AudioContext now recording is done
+    if (activeAudioCtx) {
+      activeAudioCtx.close().catch(() => {});
+      activeAudioCtx = null;
+    }
     videoEl.play().catch(() => {});
 
     const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
