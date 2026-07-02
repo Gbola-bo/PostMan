@@ -261,7 +261,7 @@
     <!-- Left: canvas preview -->
     <div class="video-preview-col">
       <div class="canvas-wrap" id="canvasWrap">
-        <canvas id="previewCanvas" width="720" height="1280"></canvas>
+        <canvas id="previewCanvas" width="540" height="960"></canvas>
         <div class="canvas-placeholder" id="canvasPlaceholder">
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="3"/><polygon points="10,8 16,12 10,16"/></svg>
           <p>Upload a video to see your preview here</p>
@@ -337,7 +337,7 @@
 const $ = id => document.getElementById(id);
 const canvas = $('previewCanvas');
 const ctx = canvas.getContext('2d');
-const W = 720, H = 1280;
+const W = 540, H = 960;
 canvas.width = W;
 canvas.height = H;
 
@@ -373,7 +373,7 @@ function checkSupport() {
     const mp4  = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') ||
                  MediaRecorder.isTypeSupported('video/mp4');
     lines.push(`✓ Rendering supported — output format: ${mp4 ? 'MP4' : webm ? 'WebM' : 'browser default'}`);
-    lines.push('Audio is captured via Web Audio API (works on iOS). Output size is ~2.5 Mbps — a 30s clip ≈ 9 MB.');
+    lines.push('Output: 540×960 (9:16). Expected size ~5-12 MB per 30s depending on device.');
   }
   note.textContent = lines.join(' ');
 }
@@ -607,30 +607,43 @@ $('recordBtn').addEventListener('click', async () => {
   const canvasStream = canvas.captureStream(30);
 
   // Audio via Web Audio API - works on iOS WebKit where
-  // video.captureStream() is not supported. AudioContext routes
-  // the video's audio track to a MediaStream destination without
-  // requiring captureStream() at all.
+  // video.captureStream() is not supported.
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (AudioCtx) {
       const audioCtx = new AudioCtx();
-      await audioCtx.resume(); // iOS requires explicit resume inside a user gesture
-      // createMediaElementSource works even when the video element is muted -
-      // muted only controls the speaker output, not the underlying audio track
+      await audioCtx.resume();
+
+      // iOS suspends AudioContext after a few seconds when it thinks
+      // the context is idle. It considers a context idle when nothing
+      // is connected to audioCtx.destination (the speakers). Fix:
+      // connect to BOTH the capture destination AND the speakers.
+      // The user hears the video during the render pass anyway, so
+      // this is fine UX. Also add a statechange listener that resumes
+      // immediately if iOS suspends it mid-render.
+      audioCtx.addEventListener('statechange', () => {
+        if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      });
+
+      // Unmute the video for this pass - iOS needs the element to
+      // actively play audio for the Web Audio routing to stay connected
+      videoEl.muted = false;
+
       const source = audioCtx.createMediaElementSource(videoEl);
       const dest = audioCtx.createMediaStreamDestination();
-      source.connect(dest); // route to capture stream (silent to user)
+      source.connect(dest);
+      source.connect(audioCtx.destination); // keeps iOS AudioContext alive
       dest.stream.getAudioTracks().forEach(t => canvasStream.addTrack(t));
     }
   } catch (e) {
-    // No audio available - continue with video-only
     console.warn('Audio capture unavailable:', e.message);
   }
 
-  // 2.5 Mbps cap: keeps a 30-second clip around 9-10 MB at 720x1280,
-  // matching the size of a typical compressed source video rather than
-  // bloating to 60 MB which is what uncapped canvas recording produces.
-  const recorderOpts = { videoBitsPerSecond: 2_500_000 };
+  // 1.5 Mbps cap: at 540x960 this produces ~5-6 MB per 30 seconds for
+  // browsers that honour the hint (Chrome/Android). iOS MediaRecorder
+  // ignores videoBitsPerSecond entirely, but the smaller canvas size
+  // above keeps iOS output reasonable regardless.
+  const recorderOpts = { videoBitsPerSecond: 1_500_000 };
   if (mimeType) recorderOpts.mimeType = mimeType;
   const recorder = new MediaRecorder(canvasStream, recorderOpts);
   const chunks = [];
