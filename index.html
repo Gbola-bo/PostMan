@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>PostMann</title>
-<meta name="theme-color" content="#fb3662">
+<meta name="theme-color" content="#D56050">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <link rel="stylesheet" href="styles.css">
@@ -12,38 +12,86 @@
 </head>
 <body class="home-body">
 
-<div class="home-stage">
-  <div class="home-pill home-pill-1">Posts</div>
-  <div class="home-pill home-pill-2">Gist</div>
-  <div class="home-pill home-pill-3">Content</div>
-  <img src="assets/cursor-accent.svg" alt="" class="home-cursor home-cursor-1">
+<div class="home-wrap" id="homeWrap">
 
-  <img src="assets/logo-full.svg" alt="PostMann" class="home-logo">
+  <!-- ===== Coral hero: organic wave background + logo + pill tags ===== -->
+  <section class="home-hero">
 
-  <div class="home-pill home-pill-4">Carousel</div>
-  <img src="assets/cursor-accent.svg" alt="" class="home-cursor home-cursor-2">
-  <div class="home-pill home-pill-5">GIF</div>
-  <div class="home-pill home-pill-6">.PNG</div>
+    <!-- Organic background blobs — approximated from Figma screenshot -->
+    <svg class="hero-bg" viewBox="0 0 390 680"
+         preserveAspectRatio="xMidYMid slice"
+         xmlns="http://www.w3.org/2000/svg">
+      <!-- Base coral fill -->
+      <rect width="390" height="680" fill="#D55F4D"/>
+      <!-- Light salmon wave: sweeps from upper-right down-left -->
+      <path d="M390 0 C 330 10, 250 30, 180 90 C 110 150, 40 190, 0 170 L 0 0 Z"
+            fill="#E47A62" opacity="0.85"/>
+      <!-- Left-side darker shape for depth -->
+      <path d="M 0 70 C 50 30, 140 70, 190 150 C 240 230, 225 340, 150 370
+               C 75 400, 10 340, 0 260 Z"
+            fill="#C44058" opacity="0.44"/>
+      <!-- Mid-right organic blob -->
+      <path d="M 230 160 C 310 120, 410 170, 410 265
+               C 410 360, 340 420, 255 410 C 170 400, 130 320, 180 250
+               C 210 200, 230 160, 230 160 Z"
+            fill="#BF3D55" opacity="0.38"/>
+      <!-- Lower sweep wave -->
+      <path d="M 0 430 C 60 390, 175 415, 265 375 C 355 335, 420 375, 420 460
+               C 420 545, 330 595, 210 578 C 90 560, 0 500, 0 430 Z"
+            fill="#CC4E5A" opacity="0.34"/>
+    </svg>
 
-  <div class="home-actions">
-    <a href="app.html" class="home-action-link" id="getStartedLink">Get Started</a>
-    <a href="vet.html" class="home-action-link home-action-secondary" id="templateToolLink">Template tool</a>
-  </div>
+    <!-- White card logo — centered in upper portion -->
+    <img class="hero-logo" src="assets/logo-white.svg" alt="PostMann">
+
+    <!-- Pill tags: cascading staircase, matching Figma layout -->
+    <div class="hero-pills">
+      <div class="pill-row pill-row-1">
+        <span class="pill-tag">.mp4</span>
+      </div>
+      <div class="pill-row pill-row-2">
+        <span class="pill-tag">.PNG</span>
+      </div>
+      <div class="pill-row pill-row-3">
+        <img src="assets/cursor-accent.svg" alt="" class="hero-cursor">
+        <span class="pill-tag">.gif</span>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ===== Cream footer: tagline + CTA + template link ===== -->
+  <section class="home-footer">
+
+    <p class="footer-tagline">
+      Got something to post <strong>today?</strong>
+    </p>
+
+    <a href="app.html" class="cta-btn" id="getStartedLink">
+      <span class="cta-label">Let's Get Started</span>
+      <span class="cta-icon">
+        <img src="assets/logo-icon.svg" alt="">
+      </span>
+    </a>
+
+    <a href="vet.html" class="footer-tool-link" id="templateToolLink">
+      template tool
+    </a>
+
+  </section>
+
 </div>
 
 <script>
-  // Plays a clean swipe-up-and-fade exit before navigating, instead of
-  // the page just jumping. Applied to both links so the experience feels
-  // consistent regardless of which one is tapped.
-  const EXIT_MS = 420;
-  const stage = document.querySelector('.home-stage');
-  function navigateWithExit(e, href) {
+  const EXIT_MS = 400;
+  const wrap = document.getElementById('homeWrap');
+  function go(e, href) {
     e.preventDefault();
-    stage.classList.add('is-leaving');
+    wrap.classList.add('is-leaving');
     setTimeout(() => { window.location.href = href; }, EXIT_MS);
   }
-  document.getElementById('getStartedLink').addEventListener('click', (e) => navigateWithExit(e, 'app.html'));
-  document.getElementById('templateToolLink').addEventListener('click', (e) => navigateWithExit(e, 'vet.html'));
+  document.getElementById('getStartedLink').addEventListener('click', e => go(e, 'app.html'));
+  document.getElementById('templateToolLink').addEventListener('click', e => go(e, 'vet.html'));
 </script>
 </body>
 </html>
