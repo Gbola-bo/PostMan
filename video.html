@@ -9,21 +9,6 @@
 <link rel="stylesheet" href="styles.css">
 <style>
 /* ===== Video page styles ===== */
-.video-topbar {
-  min-height: 56px;
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--surface);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 16px;
-  padding-top: env(safe-area-inset-top);
-  position: sticky;
-  top: 0;
-  z-index: 30;
-}
-.video-topbar-logo { height: 30px; width: auto; display: block; }
-.video-topbar .spacer { flex: 1; }
 
 .video-main {
   max-width: 680px;
@@ -245,9 +230,9 @@
 </head>
 <body>
 
-<header class="video-topbar">
-  <a href="index.html">
-    <img src="assets/logo-full.svg" alt="PostMann" class="video-topbar-logo">
+<header class="topbar">
+  <a href="index.html" class="topbar-logo-link">
+    <img src="assets/logo-full.svg" alt="PostMann" class="topbar-logo">
   </a>
   <div class="spacer"></div>
   <a href="app.html" class="btn-text-link">Templates</a>
