@@ -82,15 +82,15 @@
   gap: 10px;
 }
 /* Staircase offsets — mirrors Figma cascade */
-.pill-row-1 { transform: translateX(-18px); }
+.pill-row-1 { transform: translateX(0px); }
 .pill-row-2 { transform: translateX(0px);   }
-.pill-row-3 { transform: translateX(14px);  }
+.pill-row-3 { transform: translateX(0px);  }
 
 /* Pill shape: blush semi-transparent with salmon text */
 .pill-tag {
   display: inline-flex;
   align-items: center;
-  background: rgba(255, 220, 205, 0.28);
+  background: rgba(255, 255, 255, 0.478);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-radius: 100px;
