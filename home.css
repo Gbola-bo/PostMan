@@ -1,132 +1,196 @@
-/* Homepage - loaded alongside styles.css, which still provides the
-   shared design tokens (--brand-*, --surface-*, font-face, etc). This
-   file only adds the layout specific to this one page.
-
-   Pill/cursor/logo positions are measured from real rendered screenshots
-   (connected-component detection on each pill's exact fill color, and
-   saturation-based detection for the logo's bounding box), then adjusted
-   by a uniform shift per round of feedback - not eyeballed each time. */
+/* ===== PostMann Homepage =====
+   Rebuilt from Figma screenshot reference.
+   Uses the white-card logo on the coral hero,
+   and the gradient CTA in the cream footer section. */
 
 .home-body {
   margin: 0;
   min-height: 100dvh;
-  background: var(--surface-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 0;
-  overflow: hidden; /* keeps the swipe-up exit transition from showing a scrollbar flash */
+  background: #FAF3EF; /* cream shows through before JS loads */
+  -webkit-font-smoothing: antialiased;
 }
 
-.home-stage {
-  position: relative;
-  width: 100%;
-  max-width: 420px;
-  min-height: 88dvh;
+/* ---- Page wrapper: swipe-up exit transition ---- */
+.home-wrap {
+  min-height: 100dvh;
+  max-width: 430px;
   margin: 0 auto;
-  transition: transform 0.46s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.38s ease-out;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.36s ease-out;
 }
-.home-stage.is-leaving {
-  transform: translateY(-14%);
+.home-wrap.is-leaving {
+  transform: translateY(-10%);
   opacity: 0;
 }
 
-/* ===== Scattered pill tags =====
-   Pushed clear of the logo on both sides by an equal shift (7%), since
-   the previous spacing measured as actively overlapping at the top
-   (Gist's pill clipped into the logo) and too tight at the bottom. */
-.home-pill {
-  position: absolute;
-  background: var(--brand-100);
-  color: var(--brand-800);
-  font-size: 13px;
-  font-weight: 700;
-  padding: 9px 20px;
-  border-radius: 999px;
-  white-space: nowrap;
-  transform: translate(-50%, -50%) rotate(var(--rot));
-  animation: pillBreathe 3.6s ease-in-out infinite;
-  animation-delay: var(--pulse-delay, 0s);
-}
-.home-pill-1 { --rot: -13deg; --pulse-delay: 0s;    top: 22.1%; left: 22.4%; }
-.home-pill-2 { --rot: -7deg;  --pulse-delay: 0.6s;  top: 27.1%; left: 43.3%; }
-.home-pill-3 { --rot: 11deg;  --pulse-delay: 1.2s;  top: 21.3%; left: 73.6%; }
-.home-pill-4 { --rot: -10deg; --pulse-delay: 1.8s;  top: 64.8%; left: 23.2%; }
-.home-pill-5 { --rot: 8deg;   --pulse-delay: 2.3s;  top: 64.8%; left: 77.7%; }
-.home-pill-6 { --rot: -4deg;  --pulse-delay: 0.3s;  top: 68.0%; left: 50.1%; }
-
-/* Subtle "alive" breathing - gentle scale, no movement, slow and quiet
-   so it reads as ambient life rather than competing for attention. Each
-   pill is offset via --pulse-delay so they don't all move in lockstep. */
-@keyframes pillBreathe {
-  0%, 100% { scale: 1; }
-  50% { scale: 1.035; }
-}
-
-/* ===== Cursor accents =====
-   Slower and softer pop than before (was 1.7s up to 1.22 scale - now
-   2.6s up to 1.12, smoother easing) so it reads as a gentle pulse, not a
-   jolt. Cursor-2 also moved clear of the Carousel pill's text - it was
-   sitting almost directly over the word "Carousel"; now sits below-left
-   of the pill, pointing up into the corner the way cursor-1 already does
-   with Content (below-left, not overlapping the text row). */
-.home-cursor {
-  position: absolute;
-  width: 26px;
-  height: 26px;
-  transform-origin: center;
-  animation: cursorPop 2.6s ease-in-out infinite;
-}
-.home-cursor-1 { top: 28.3%; left: 68.4%; transform: translate(-50%, -50%) rotate(8deg); animation-delay: 0s; }
-.home-cursor-2 { top: 69.8%; left: 14%;   transform: translate(-50%, -50%) rotate(-4deg); animation-delay: 0.9s; }
-
-@keyframes cursorPop {
-  0%, 100% { scale: 1; }
-  50% { scale: 1.12; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .home-cursor, .home-pill { animation: none; }
-}
-
-/* ===== The real logo artwork, centered on its measured midpoint ===== */
-.home-logo {
-  position: absolute;
-  top: 43.9%;
-  left: 49.2%;
-  transform: translate(-50%, -50%);
-  width: 76%;
-  max-width: 340px;
-  height: auto;
-}
-
-/* ===== Get Started / Template tool ===== */
-.home-actions {
-  position: absolute;
-  top: 74.5%;
-  left: 0;
-  right: 0;
+/* ================================================================
+   CORAL HERO SECTION
+   ================================================================ */
+.home-hero {
+  position: relative;
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  overflow: hidden;
+  /* Rounded bottom so the hero "sits" on the cream card below */
+  border-radius: 0 0 28px 28px;
+  /* Safe area at top for notch/island */
+  padding-top: env(safe-area-inset-top);
+  z-index: 1;
 }
-.home-action-link {
+
+/* SVG organic blobs: absolute, fills entire hero */
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Logo card: white-pill artwork sits in the upper center */
+.hero-logo {
+  position: relative;
+  z-index: 2;
+  width: 84%;
+  max-width: 320px;
+  /* Push down ~32% from top, then pills push the logo up naturally */
+  margin-top: 28%;
+  /* Slight shadow so the white card pops off the coral */
+  filter: drop-shadow(0 8px 28px rgba(0,0,0,0.18));
+}
+
+/* Pills container: pushes to the bottom of the flex hero */
+.hero-pills {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  padding-bottom: 40px;
+  width: 100%;
+}
+
+/* Each pill row: allows horizontal offset for the staircase feel */
+.pill-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+/* Staircase offsets — mirrors Figma cascade */
+.pill-row-1 { transform: translateX(-18px); }
+.pill-row-2 { transform: translateX(0px);   }
+.pill-row-3 { transform: translateX(14px);  }
+
+/* Pill shape: blush semi-transparent with salmon text */
+.pill-tag {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 220, 205, 0.28);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 100px;
+  padding: 11px 30px;
   font-size: 15px;
+  font-weight: 700;
+  color: rgba(220, 80, 65, 0.90);
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+/* Cursor accent beside .gif pill */
+.hero-cursor {
+  width: 22px;
+  height: 22px;
+  transform: rotate(-8deg);
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   CREAM FOOTER SECTION
+   ================================================================ */
+.home-footer {
+  /* Slightly overlaps the hero's rounded bottom so the join is seamless */
+  position: relative;
+  z-index: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 36px 28px calc(36px + env(safe-area-inset-bottom));
+  gap: 16px;
+  background: #FAF3EF;
+}
+
+.footer-tagline {
+  font-family: "Funnel Display", -apple-system, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: #2C2C2C;
+  text-align: center;
+  line-height: 1.45;
+  letter-spacing: -0.1px;
+  margin: 0;
+}
+.footer-tagline strong {
+  font-weight: 700;
+}
+
+/* ---- Gradient CTA pill button ---- */
+.cta-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 270px;
+  padding: 11px 11px 11px 24px;
+  background: linear-gradient(90deg, #FF644F 0%, #9F356C 100%);
+  border-radius: 100px;
+  color: white;
+  font-family: "Funnel Display", -apple-system, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  box-shadow: 0 6px 22px rgba(210, 75, 70, 0.30);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  text-decoration: none;
+}
+.cta-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 3px 10px rgba(210, 75, 70, 0.18);
+}
+.cta-label {
+  flex: 1;
+}
+/* Icon circle on the right of the button */
+.cta-icon {
+  width: 34px;
+  height: 34px;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.cta-icon img {
+  width: 18px;
+  height: 18px;
+}
+
+/* ---- Underlined template tool link ---- */
+.footer-tool-link {
+  font-family: "Funnel Display", -apple-system, sans-serif;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--text-primary);
-  padding: 10px 24px;
+  color: #F66052;
+  text-decoration: underline;
+  letter-spacing: -0.3px;
+  padding: 6px 0;
   min-height: 44px;
   display: flex;
   align-items: center;
-  border-radius: var(--radius-md);
-}
-.home-action-link:active { background: var(--surface-tertiary); }
-.home-action-secondary {
-  font-weight: 500;
-  color: var(--text-secondary);
-  font-size: 14px;
-}
-
-@media (min-width: 600px) {
-  .home-stage { min-height: 760px; }
 }
