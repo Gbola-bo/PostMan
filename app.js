@@ -8,9 +8,26 @@ const screens = {
   generating: $('screen-generating'),
   results: $('screen-results'),
 };
-function showScreen(name) {
+function showScreen(name, fromPopState = false) {
   Object.entries(screens).forEach(([k, el]) => el.classList.toggle('hidden', k !== name));
+  // Push meaningful screens into browser history so the back button
+  // navigates between PostMann screens rather than leaving the app.
+  // 'generating' is intentionally excluded - there's no useful state
+  // to return to mid-render, and it exits naturally to 'results'.
+  if (!fromPopState && (name === 'form' || name === 'results')) {
+    history.pushState({ screen: name }, '');
+  }
 }
+
+// Browser back button: navigate between screens, not away from the app.
+// When history runs out of PostMann states the browser naturally goes
+// back to wherever the user came from (e.g. index.html).
+window.addEventListener('popstate', (e) => {
+  const screen = e.state?.screen;
+  if (screen === 'results') showScreen('results', true);
+  else if (screen === 'form') showScreen('form', true);
+  else showScreen('dashboard', true); // initial state — still on app.html
+});
 
 // ---------- State ----------
 let manifest = null;
