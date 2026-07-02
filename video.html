@@ -8,7 +8,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="stylesheet" href="styles.css">
 <style>
-/* ===== Video page styles ===== */
+/* ===== Video page ===== */
 .video-topbar {
   min-height: 56px;
   border-bottom: 1px solid var(--border-subtle);
@@ -31,19 +31,14 @@
   padding: 20px 16px calc(48px + env(safe-area-inset-bottom));
 }
 
-/* Two-column layout on wider screens: preview left, controls right */
 .video-layout {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 @media (min-width: 600px) {
-  .video-layout {
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 28px;
-  }
-  .video-preview-col { flex-shrink: 0; width: 220px; }
+  .video-layout { flex-direction: row; align-items: flex-start; gap: 28px; }
+  .video-preview-col { flex-shrink: 0; width: 200px; }
   .video-controls-col { flex: 1; min-width: 0; }
 }
 
@@ -54,160 +49,174 @@
   overflow: hidden;
   box-shadow: 0 4px 24px rgba(0,0,0,0.14);
   background: #000;
-  /* 9:16 aspect ratio */
   aspect-ratio: 9 / 16;
   width: 100%;
-  max-width: 220px;
+  max-width: 200px;
   margin: 0 auto;
+  transition: aspect-ratio 0.2s;
 }
-@media (min-width: 600px) {
-  .canvas-wrap { margin: 0; }
-}
-#previewCanvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-  border-radius: 14px;
-}
+@media (min-width: 600px) { .canvas-wrap { margin: 0; } }
+#previewCanvas { width: 100%; height: 100%; display: block; border-radius: 14px; }
 .canvas-placeholder {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: var(--surface-tertiary);
-  pointer-events: none;
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  background: var(--surface-tertiary); pointer-events: none;
 }
 .canvas-placeholder svg { opacity: 0.3; }
-.canvas-placeholder p { font-size: 11px; color: var(--text-tertiary); text-align: center; }
+.canvas-placeholder p { font-size: 11px; color: var(--text-tertiary); text-align: center; padding: 0 12px; }
+.record-indicator {
+  position: absolute; top: 10px; right: 10px;
+  width: 10px; height: 10px; border-radius: 50%; background: #ff3b30; display: none;
+  animation: recPulse 1s ease-in-out infinite;
+}
+.recording .record-indicator { display: block; }
+@keyframes recPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-/* ===== Controls ===== */
-.section-title { font-size: 16px; font-weight: 700; margin: 0 0 4px; }
-.section-sub { font-size: 13px; color: var(--text-secondary); margin: 0 0 18px; }
-
-.upload-box {
-  border: 1.5px dashed var(--border-default);
-  border-radius: var(--radius-lg);
-  padding: 18px 14px;
-  text-align: center;
-  background: var(--surface);
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-}
-.upload-box:hover { border-color: var(--brand-600); background: var(--brand-50); }
-.upload-box input[type="file"] { display: none; }
-.upload-box .upload-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--brand-600);
-}
-.upload-box .upload-hint {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin-top: 3px;
-}
-.file-chosen {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 8px;
-  padding: 0 4px;
-}
-
-.controls-divider {
-  height: 1px;
-  background: var(--border-subtle);
-  margin: 20px 0;
-}
-
-.template-selector {
+/* ===== Picker rows (ratio / style / quality) ===== */
+.picker-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 14px;
 }
-.template-btn {
+.picker-btn {
   flex: 1;
-  padding: 10px 8px;
+  padding: 9px 6px;
   border: 1.5px solid var(--border-default);
   border-radius: var(--radius-md);
   background: var(--surface);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   text-align: center;
   cursor: pointer;
+  line-height: 1.3;
 }
-.template-btn.active {
+.picker-btn small { display: block; font-weight: 400; color: var(--text-tertiary); font-size: 10px; margin-top: 2px; }
+.picker-btn.active {
   border-color: var(--brand-600);
   background: var(--brand-50);
   color: var(--brand-800);
 }
+.picker-btn.active small { color: var(--brand-600); }
 
-/* ===== Action buttons ===== */
-.action-row {
+/* ===== Upload row (replaces the bulky dashed box) ===== */
+.upload-row {
   display: flex;
+  align-items: center;
   gap: 10px;
-  margin-top: 20px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 0 12px 0 0;
+  background: var(--surface);
+  overflow: hidden;
+  min-height: 48px;
 }
-.action-row .btn-primary,
-.action-row .btn-secondary {
-  flex: 1;
+.upload-row-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 14px;
+  background: var(--surface-secondary);
+  border-right: 1px solid var(--border-default);
   font-size: 13px;
-  padding: 12px 10px;
+  font-weight: 600;
+  color: var(--brand-600);
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
 }
+.upload-row-btn input[type="file"] { display: none; }
+.upload-row-name {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+.upload-row-name.chosen { color: var(--text-secondary); }
 
-/* ===== Recording state ===== */
-.record-indicator {
+/* ===== Headline field with inline color swatch ===== */
+.headline-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.headline-wrap .text-input {
+  padding-right: 48px; /* room for the swatch */
+}
+.color-swatch {
   position: absolute;
-  top: 10px;
   right: 10px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #ff3b30;
-  display: none;
-  animation: recPulse 1s ease-in-out infinite;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 2px solid rgba(255,255,255,0.8);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.18);
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
 }
-.recording .record-indicator { display: block; }
-@keyframes recPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+.color-swatch input[type="color"] {
+  position: absolute; inset: -4px; opacity: 0; cursor: pointer; width: 150%; height: 150%;
 }
 
-/* ===== Progress bar ===== */
-.record-progress-wrap {
-  margin-top: 12px;
-  display: none;
+/* ===== Text toolbar ===== */
+.text-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
 }
+.toolbar-group { display: flex; gap: 2px; }
+.toolbar-sep { width: 1px; background: var(--border-default); align-self: stretch; margin: 0 4px; }
+.tool-btn {
+  min-width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+.tool-btn:active, .tool-btn.active {
+  background: var(--surface);
+  color: var(--brand-600);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* ===== Divider ===== */
+.controls-divider { height: 1px; background: var(--border-subtle); margin: 18px 0; }
+
+/* ===== Action row ===== */
+.action-row { display: flex; gap: 10px; margin-top: 16px; }
+.action-row .btn-primary, .action-row .btn-secondary {
+  flex: 1; font-size: 13px; padding: 12px 10px;
+}
+
+/* ===== Progress ===== */
+.record-progress-wrap { margin-top: 12px; display: none; }
 .record-progress-wrap.visible { display: block; }
 .record-progress-label {
-  font-size: 11px;
-  color: var(--text-secondary);
-  margin-bottom: 5px;
-  display: flex;
-  justify-content: space-between;
+  font-size: 11px; color: var(--text-secondary); margin-bottom: 5px;
+  display: flex; justify-content: space-between;
 }
-.record-progress-track {
-  height: 5px;
-  background: var(--surface-tertiary);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.record-progress-fill {
-  height: 100%;
-  background: var(--brand-600);
-  width: 0%;
-  transition: width 0.25s;
-}
+.record-progress-track { height: 5px; background: var(--surface-tertiary); border-radius: 4px; overflow: hidden; }
+.record-progress-fill { height: 100%; background: var(--brand-600); width: 0%; transition: width 0.25s; }
 
 /* ===== Outputs ===== */
-.outputs-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-top: 18px;
-}
+.outputs-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 18px; }
 .output-card {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
@@ -215,11 +224,7 @@
   overflow: hidden;
 }
 .output-card video, .output-card img {
-  width: 100%;
-  display: block;
-  background: #000;
-  aspect-ratio: 9 / 16;
-  object-fit: cover;
+  width: 100%; display: block; background: #000; object-fit: cover;
 }
 .output-card .output-label { font-size: 11px; font-weight: 600; padding: 8px 10px 2px; }
 .output-card .download-btn {
@@ -231,15 +236,12 @@
 }
 .output-card .download-btn:active { background: var(--surface-secondary); }
 
-/* ===== Browser support note ===== */
+/* ===== Support note ===== */
 .support-note {
-  font-size: 11px;
-  color: var(--text-tertiary);
+  font-size: 11px; color: var(--text-tertiary);
   background: var(--surface-tertiary);
   border-radius: var(--radius-md);
-  padding: 10px 12px;
-  margin-top: 14px;
-  line-height: 1.5;
+  padding: 10px 12px; margin-top: 14px; line-height: 1.5;
 }
 </style>
 </head>
@@ -255,22 +257,23 @@
 
 <main class="video-main">
   <p class="page-title" style="margin-bottom:4px;">Video</p>
-  <p class="page-subtitle" style="margin-bottom:22px;">Upload your clip, add a branded overlay, export your post.</p>
+  <p class="page-subtitle" style="margin-bottom:22px;">Upload your clip, add a branded overlay, export.</p>
 
   <div class="video-layout">
+
     <!-- Left: canvas preview -->
     <div class="video-preview-col">
       <div class="canvas-wrap" id="canvasWrap">
-        <canvas id="previewCanvas" width="540" height="960"></canvas>
+        <canvas id="previewCanvas"></canvas>
         <div class="canvas-placeholder" id="canvasPlaceholder">
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="3"/><polygon points="10,8 16,12 10,16"/></svg>
-          <p>Upload a video to see your preview here</p>
+          <p>Upload a video to preview</p>
         </div>
         <div class="record-indicator" id="recordIndicator"></div>
       </div>
       <div class="record-progress-wrap" id="recordProgress">
         <div class="record-progress-label">
-          <span>Recording...</span>
+          <span>Rendering...</span>
           <span id="recordTimeLabel">0s</span>
         </div>
         <div class="record-progress-track">
@@ -282,45 +285,84 @@
     <!-- Right: controls -->
     <div class="video-controls-col">
 
-      <div class="field-label" style="margin-top:0;">Template style</div>
-      <div class="template-selector">
-        <button type="button" class="template-btn active" data-tpl="fullbleed">Full bleed</button>
-        <button type="button" class="template-btn" data-tpl="framed">Framed</button>
+      <!-- Canvas ratio -->
+      <div class="field-label" style="margin-top:0;">Canvas ratio</div>
+      <div class="picker-row" id="ratioPicker">
+        <button type="button" class="picker-btn active" data-ratio="story">Story<small>9:16</small></button>
+        <button type="button" class="picker-btn" data-ratio="portrait">Portrait<small>4:5</small></button>
+        <button type="button" class="picker-btn" data-ratio="square">Square<small>1:1</small></button>
       </div>
 
-      <label class="upload-box" for="videoFileInput">
-        <input type="file" id="videoFileInput" accept="video/*">
-        <div class="upload-label">Choose video</div>
-        <div class="upload-hint">MP4, MOV, WebM — any format your browser can play</div>
-      </label>
-      <div class="file-chosen hidden" id="videoFileName"></div>
+      <!-- Template style -->
+      <div class="field-label">Style</div>
+      <div class="picker-row" id="stylePicker">
+        <button type="button" class="picker-btn active" data-tpl="fullbleed">Full bleed</button>
+        <button type="button" class="picker-btn" data-tpl="framed">Framed</button>
+      </div>
 
-      <div style="margin-top:14px;">
-        <label class="field-label">Headline text (overlaid on video)</label>
+      <!-- Video upload — single clean row -->
+      <div class="field-label">Video file</div>
+      <div class="upload-row">
+        <label class="upload-row-btn" for="videoFileInput">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Choose
+          <input type="file" id="videoFileInput" accept="video/*">
+        </label>
+        <span class="upload-row-name" id="videoFileName">MP4, MOV, WebM</span>
+      </div>
+
+      <!-- Headline + inline color swatch -->
+      <div class="field-label" style="margin-top:14px;">Headline text</div>
+      <div class="headline-wrap">
         <input type="text" id="headlineInput" class="text-input" placeholder="Leave blank to skip">
+        <label class="color-swatch" id="colorSwatch" style="background:#ffffff;" title="Text colour">
+          <input type="color" id="textColourInput" value="#ffffff">
+        </label>
       </div>
 
-      <div style="margin-top:12px;">
-        <label class="field-label">Text colour</label>
-        <div style="display:flex; gap:10px; align-items:center;">
-          <input type="color" id="textColourInput" value="#ffffff" style="width:44px; height:44px; border:1px solid var(--border-default); border-radius:var(--radius-md); padding:2px; cursor:pointer;">
-          <span style="font-size:12px; color:var(--text-secondary);">White works well over most footage</span>
+      <!-- Text toolbar: size | align | bold -->
+      <div class="text-toolbar">
+        <div class="toolbar-group" id="sizePicker">
+          <button type="button" class="tool-btn active" data-size="small">S</button>
+          <button type="button" class="tool-btn" data-size="medium">M</button>
+          <button type="button" class="tool-btn" data-size="large">L</button>
         </div>
+        <div class="toolbar-sep"></div>
+        <div class="toolbar-group" id="alignPicker">
+          <button type="button" class="tool-btn" data-align="left" title="Left">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+          </button>
+          <button type="button" class="tool-btn active" data-align="center" title="Centre">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+          </button>
+          <button type="button" class="tool-btn" data-align="right" title="Right">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="toolbar-sep"></div>
+        <button type="button" class="tool-btn active" id="boldBtn" title="Bold" style="font-weight:800; font-size:14px;">B</button>
       </div>
 
       <div class="controls-divider"></div>
 
+      <!-- Quality selector -->
+      <div class="field-label">Output quality</div>
+      <div class="picker-row" id="qualityPicker">
+        <button type="button" class="picker-btn active" data-quality="reg">Regular<small>~5 MB/30s</small></button>
+        <button type="button" class="picker-btn" data-quality="mid">Medium<small>~10 MB/30s</small></button>
+        <button type="button" class="picker-btn" data-quality="high">High<small>~20 MB/30s</small></button>
+      </div>
+
       <div class="action-row">
         <button type="button" id="recordBtn" class="btn-primary" disabled>Render video</button>
-        <button type="button" id="coverBtn" class="btn-secondary" disabled>Save cover PNG</button>
+        <button type="button" id="coverBtn" class="btn-secondary" disabled>Cover PNG</button>
       </div>
 
       <div class="support-note" id="supportNote"></div>
-
     </div>
   </div>
 
-  <!-- Outputs appear here once recording/capture is done -->
+  <!-- Outputs -->
   <div id="outputsSection" class="hidden" style="margin-top:24px;">
     <p style="font-size:15px; font-weight:700; margin-bottom:14px;">Your exports</p>
     <div class="outputs-grid" id="outputsGrid"></div>
@@ -330,293 +372,319 @@
 
 <script>
 // ============================================================
-// PostMann Video POC
+// PostMann Video
 // native canvas + MediaRecorder, no framework, no build step
 // ============================================================
 
 const $ = id => document.getElementById(id);
 const canvas = $('previewCanvas');
 const ctx = canvas.getContext('2d');
-const W = 540, H = 960;
-canvas.width = W;
-canvas.height = H;
 
-let videoEl = null;       // muted <video> driving the canvas - browser never decodes audio for it
-let audioEl = null;       // separate <audio> that is NEVER muted - this is what we capture from
-let logoImg = null;       // preloaded logo image
-let animFrame = null;     // active requestAnimationFrame handle
-let activeTemplate = 'fullbleed';
-let recording = false;
-let activeAudioCtx = null; // module-level so GC can't collect it mid-recording
+// ---- Canvas size config ----
+// BASE_SHORT: the short side of the canvas per quality level.
+// Ratios are always width:height in portrait/story (short:long).
+const BASE_SHORT = { reg: 540, mid: 720, high: 1080 };
+const RATIO_CONFIGS = {
+  story:    { aspectW: 9,  aspectH: 16, cssRatio: '9 / 16' },
+  portrait: { aspectW: 4,  aspectH: 5,  cssRatio: '4 / 5'  },
+  square:   { aspectW: 1,  aspectH: 1,  cssRatio: '1 / 1'  },
+};
+const BITRATES = { reg: 1_500_000, mid: 2_500_000, high: 5_000_000 };
 
-// ---- Preload the logo ----
+function getCanvasDims() {
+  const short = BASE_SHORT[activeQuality];
+  const { aspectW, aspectH } = RATIO_CONFIGS[activeRatio];
+  // For portrait/story, short side is the width.
+  // For square, both sides are equal to short.
+  const w = short;
+  const h = Math.round(short * aspectH / aspectW);
+  return { w, h };
+}
+
+// ---- State ----
+let videoEl       = null;
+let audioEl       = null;
+let logoImg       = null;
+let animFrame     = null;
+let activeRatio   = 'story';
+let activeTemplate= 'fullbleed';
+let activeQuality = 'reg';
+let textSize      = 'small';    // 'small' | 'medium' | 'large'
+let textAlign     = 'center';   // 'left' | 'center' | 'right'
+let textBold      = true;
+let recording     = false;
+let activeAudioCtx= null;
+
+// Initialise canvas to default dims
+(function initCanvas() {
+  const { w, h } = getCanvasDims();
+  canvas.width = w; canvas.height = h;
+})();
+
+// ---- Logo ----
 function loadLogo() {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => { logoImg = img; resolve(); };
-    img.onerror = () => resolve(); // logo missing, draw without it
+    img.onerror = () => resolve();
     img.src = 'assets/logo-icon.svg';
   });
 }
 loadLogo();
 
-// ---- Browser capability check ----
+// ---- Support check ----
 function checkSupport() {
   const note = $('supportNote');
-  const lines = [];
   if (!window.MediaRecorder) {
-    lines.push('⚠️ MediaRecorder not supported — video rendering won\'t work. Try Chrome, Edge, or Safari (iOS 14.5+).');
-  } else if (!HTMLCanvasElement.prototype.captureStream) {
-    lines.push('⚠️ canvas.captureStream() not supported — try Chrome on Android or update to iOS 14.5+.');
-  } else {
-    const webm = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ||
-                 MediaRecorder.isTypeSupported('video/webm;codecs=vp8') ||
-                 MediaRecorder.isTypeSupported('video/webm');
-    const mp4  = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') ||
-                 MediaRecorder.isTypeSupported('video/mp4');
-    lines.push(`✓ Rendering supported — output format: ${mp4 ? 'MP4' : webm ? 'WebM' : 'browser default'}`);
-    lines.push('Output: 540×960 (9:16). Expected size ~5-12 MB per 30s depending on device.');
+    note.textContent = '⚠️ MediaRecorder not supported. Try Chrome, Edge, or Safari (iOS 14.5+).';
+    return;
   }
-  note.textContent = lines.join(' ');
+  if (!HTMLCanvasElement.prototype.captureStream) {
+    note.textContent = '⚠️ canvas.captureStream() not supported — try Chrome on Android or iOS 14.5+.';
+    return;
+  }
+  const mp4 = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') || MediaRecorder.isTypeSupported('video/mp4');
+  const webm = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') || MediaRecorder.isTypeSupported('video/webm');
+  note.textContent = `✓ Ready — output: ${mp4 ? 'MP4' : webm ? 'WebM' : 'default'}. Audio captured via Web Audio API.`;
 }
 checkSupport();
 
 function bestMimeType() {
-  const types = [
-    'video/mp4;codecs=avc1',
-    'video/webm;codecs=vp9',
-    'video/webm;codecs=vp8',
-    'video/webm',
-  ];
-  return types.find(t => MediaRecorder.isTypeSupported(t)) || '';
+  return ['video/mp4;codecs=avc1','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']
+    .find(t => MediaRecorder.isTypeSupported(t)) || '';
+}
+
+// ---- Canvas size helper ----
+function applyCanvasSize() {
+  const { w, h } = getCanvasDims();
+  canvas.width = w; canvas.height = h;
+  $('canvasWrap').style.aspectRatio = RATIO_CONFIGS[activeRatio].cssRatio;
+  drawCurrentFrame();
+}
+
+// ---- Text helpers ----
+function getTextFontSize() {
+  const { w } = getCanvasDims();
+  const base = { small: 0.10, medium: 0.13, large: 0.17 }[textSize];
+  return Math.round(w * base);
+}
+function getTextX(W) {
+  const pad = Math.round(W * 0.06);
+  return { left: pad, center: W / 2, right: W - pad }[textAlign];
+}
+function ctxTextAlign() { return textAlign; }
+
+// ---- wrapText ----
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = text.split(' ');
+  let line = '', lines = [];
+  for (let w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = w; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+  lines.forEach((l, i) => ctx.fillText(l, x, y + i * lineHeight));
 }
 
 // ---- Template drawing ----
-function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-  // Simple word-wrap for canvas text
-  const words = text.split(' ');
-  let line = '';
-  const lines = [];
-  for (let i = 0; i < words.length; i++) {
-    const test = line ? line + ' ' + words[i] : words[i];
-    if (ctx.measureText(test).width > maxWidth && line) {
-      lines.push(line);
-      line = words[i];
-    } else {
-      line = test;
-    }
-  }
-  if (line) lines.push(line);
-  const totalH = lines.length * lineHeight;
-  const startY = y - totalH + lineHeight;
-  lines.forEach((l, i) => ctx.fillText(l, x, startY + i * lineHeight));
-}
-
-function drawOverlay(headline, textColour) {
-  // Brand gradient bar at top
-  const topH = 100;
+function drawOverlay(W, H, headline, colour) {
+  const topH = Math.round(H * 0.06);
   const grd = ctx.createLinearGradient(0, 0, W, 0);
-  grd.addColorStop(0, '#ff684d');
-  grd.addColorStop(0.45, '#fb3662');
-  grd.addColorStop(1, '#9d356c');
+  grd.addColorStop(0, '#ff684d'); grd.addColorStop(0.45, '#fb3662'); grd.addColorStop(1, '#9d356c');
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, W, topH);
-
-  // Logo in brand bar
   if (logoImg) {
-    const logoH = 54;
-    const logoW = logoH;
-    ctx.drawImage(logoImg, 24, (topH - logoH) / 2, logoW, logoH);
+    const lh = Math.round(topH * 0.62);
+    ctx.drawImage(logoImg, Math.round(W * 0.04), Math.round((topH - lh) / 2), lh, lh);
   }
-
-  // Bottom gradient scrim for text legibility
   if (headline && headline.trim()) {
-    const scrimH = H * 0.45;
+    const scrimH = H * 0.48;
     const scrim = ctx.createLinearGradient(0, H - scrimH, 0, H);
-    scrim.addColorStop(0, 'rgba(0,0,0,0)');
-    scrim.addColorStop(1, 'rgba(0,0,0,0.78)');
+    scrim.addColorStop(0, 'rgba(0,0,0,0)'); scrim.addColorStop(1, 'rgba(0,0,0,0.78)');
     ctx.fillStyle = scrim;
     ctx.fillRect(0, H - scrimH, W, scrimH);
 
-    // Headline text
-    ctx.fillStyle = textColour || '#ffffff';
-    ctx.font = `700 72px "Funnel Display", sans-serif`;
-    ctx.textAlign = 'center';
+    const fs = getTextFontSize();
+    const weight = textBold ? '700' : '400';
+    ctx.font = `${weight} ${fs}px "Funnel Display", sans-serif`;
+    ctx.fillStyle = colour || '#ffffff';
+    ctx.textAlign = ctxTextAlign();
     ctx.textBaseline = 'bottom';
-    wrapText(ctx, headline.trim(), W / 2, H - 80, W - 100, 88);
+    const x = getTextX(W);
+    const pad = Math.round(W * 0.06);
+    wrapText(ctx, headline.trim(), x, H - Math.round(H * 0.04), W - pad * 2, Math.round(fs * 1.25));
   }
 }
 
-function drawTemplateFullBleed(headline, textColour) {
-  if (!videoEl) return drawBlankFrame();
-  // Video fills entire canvas
+function drawTemplateFullBleed(W, H, headline, colour) {
+  if (!videoEl) return drawBlankFrame(W, H);
   ctx.drawImage(videoEl, 0, 0, W, H);
-  drawOverlay(headline, textColour);
+  drawOverlay(W, H, headline, colour);
 }
 
-function drawTemplateFramed(headline, textColour) {
-  if (!videoEl) return drawBlankFrame();
-  // Cream background
-  ctx.fillStyle = '#fafaf9';
-  ctx.fillRect(0, 0, W, H);
-
-  // Brand gradient bar at top (taller in this template)
-  const topH = 160;
+function drawTemplateFramed(W, H, headline, colour) {
+  if (!videoEl) return drawBlankFrame(W, H);
+  ctx.fillStyle = '#fafaf9'; ctx.fillRect(0, 0, W, H);
+  const topH = Math.round(H * 0.1);
   const grd = ctx.createLinearGradient(0, 0, W, 0);
-  grd.addColorStop(0, '#ff684d');
-  grd.addColorStop(0.45, '#fb3662');
-  grd.addColorStop(1, '#9d356c');
-  ctx.fillStyle = grd;
-  ctx.fillRect(0, 0, W, topH);
-
+  grd.addColorStop(0, '#ff684d'); grd.addColorStop(0.45, '#fb3662'); grd.addColorStop(1, '#9d356c');
+  ctx.fillStyle = grd; ctx.fillRect(0, 0, W, topH);
   if (logoImg) {
-    const logoH = 80;
-    ctx.drawImage(logoImg, 36, (topH - logoH) / 2, logoH, logoH);
+    const lh = Math.round(topH * 0.62);
+    ctx.drawImage(logoImg, Math.round(W * 0.05), Math.round((topH - lh) / 2), lh, lh);
   }
-
-  // Video in a rounded rectangle in the centre
-  const vPad = 36;
-  const vX = vPad;
-  const vY = topH + 36;
-  const vW = W - vPad * 2;
-  // Maintain the video's original aspect ratio within the available space
-  const vH = Math.min(H * 0.56, vW * (videoEl.videoHeight / (videoEl.videoWidth || 1)));
-  const radius = 28;
+  const pad = Math.round(W * 0.04);
+  const vX = pad, vY = topH + pad;
+  const vW = W - pad * 2;
+  const vH = Math.min(H * 0.56, vW * ((videoEl.videoHeight || 1) / (videoEl.videoWidth || 1)));
+  const r = Math.round(W * 0.04);
   ctx.save();
-  ctx.beginPath();
-  ctx.roundRect(vX, vY, vW, vH, radius);
-  ctx.clip();
+  ctx.beginPath(); ctx.roundRect(vX, vY, vW, vH, r); ctx.clip();
   ctx.drawImage(videoEl, vX, vY, vW, vH);
   ctx.restore();
-
-  // Subtle border around the video
-  ctx.strokeStyle = 'rgba(0,0,0,0.08)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(vX, vY, vW, vH, radius);
-  ctx.stroke();
-
-  // Headline below video
+  ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(vX, vY, vW, vH, r); ctx.stroke();
   if (headline && headline.trim()) {
-    ctx.fillStyle = '#171717';
-    ctx.font = `700 68px "Funnel Display", sans-serif`;
-    ctx.textAlign = 'center';
+    const fs = getTextFontSize();
+    const weight = textBold ? '700' : '400';
+    ctx.font = `${weight} ${fs}px "Funnel Display", sans-serif`;
+    ctx.fillStyle = colour || '#171717';
+    ctx.textAlign = ctxTextAlign();
     ctx.textBaseline = 'top';
-    const textY = vY + vH + 52;
-    wrapText(ctx, headline.trim(), W / 2, textY, W - 100, 84);
+    const x = getTextX(W);
+    const pad2 = Math.round(W * 0.06);
+    wrapText(ctx, headline.trim(), x, vY + vH + Math.round(H * 0.03), W - pad2 * 2, Math.round(fs * 1.25));
   }
-
-  // Brand dots at bottom as accent
-  const dotY = H - 70;
-  ['#ff684d', '#fb3662', '#9d356c'].forEach((c, i) => {
-    ctx.fillStyle = c;
-    ctx.beginPath();
-    ctx.arc(W / 2 + (i - 1) * 36, dotY, 10, 0, Math.PI * 2);
+  const dotY = H - Math.round(H * 0.04);
+  ['#ff684d','#fb3662','#9d356c'].forEach((c, i) => {
+    ctx.fillStyle = c; ctx.beginPath();
+    ctx.arc(W / 2 + (i - 1) * Math.round(W * 0.06), dotY, Math.round(W * 0.016), 0, Math.PI * 2);
     ctx.fill();
   });
 }
 
-function drawBlankFrame() {
-  ctx.fillStyle = '#f1efe8';
-  ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#9b9a95';
-  ctx.font = '36px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('Upload a video to preview', W / 2, H / 2);
+function drawBlankFrame(W, H) {
+  const cW = W || canvas.width, cH = H || canvas.height;
+  ctx.fillStyle = '#f1efe8'; ctx.fillRect(0, 0, cW, cH);
+  ctx.fillStyle = '#9b9a95'; ctx.font = `${Math.round(cW * 0.055)}px sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('Upload a video to preview', cW / 2, cH / 2);
 }
 
 function getHeadline() { return $('headlineInput').value; }
 function getTextColour() { return $('textColourInput').value; }
 
 function drawCurrentFrame() {
-  if (activeTemplate === 'framed') {
-    drawTemplateFramed(getHeadline(), getTextColour());
-  } else {
-    drawTemplateFullBleed(getHeadline(), getTextColour());
-  }
+  const { w, h } = getCanvasDims();
+  if (activeTemplate === 'framed') drawTemplateFramed(w, h, getHeadline(), getTextColour());
+  else drawTemplateFullBleed(w, h, getHeadline(), getTextColour());
 }
 
 function startPreviewLoop() {
   cancelAnimationFrame(animFrame);
-  function loop() {
-    drawCurrentFrame();
-    animFrame = requestAnimationFrame(loop);
-  }
+  function loop() { drawCurrentFrame(); animFrame = requestAnimationFrame(loop); }
   loop();
 }
+
+// ---- Picker handlers ----
+$('ratioPicker').querySelectorAll('.picker-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $('ratioPicker').querySelectorAll('.picker-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeRatio = btn.dataset.ratio;
+    applyCanvasSize();
+  });
+});
+
+$('stylePicker').querySelectorAll('.picker-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $('stylePicker').querySelectorAll('.picker-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeTemplate = btn.dataset.tpl;
+  });
+});
+
+$('qualityPicker').querySelectorAll('.picker-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $('qualityPicker').querySelectorAll('.picker-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeQuality = btn.dataset.quality;
+    applyCanvasSize();
+  });
+});
+
+// Size toolbar
+$('sizePicker').querySelectorAll('.tool-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $('sizePicker').querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    textSize = btn.dataset.size;
+  });
+});
+
+// Align toolbar
+$('alignPicker').querySelectorAll('.tool-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $('alignPicker').querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    textAlign = btn.dataset.align;
+  });
+});
+
+// Bold toggle
+$('boldBtn').addEventListener('click', () => {
+  textBold = !textBold;
+  $('boldBtn').classList.toggle('active', textBold);
+});
+
+// Inline color swatch - keep swatch background in sync with picker value
+$('textColourInput').addEventListener('input', () => {
+  $('colorSwatch').style.background = $('textColourInput').value;
+});
 
 // ---- File upload ----
 $('videoFileInput').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  $('videoFileName').textContent = file.name;
-  $('videoFileName').classList.remove('hidden');
+  const name = $('videoFileName');
+  name.textContent = file.name;
+  name.classList.add('chosen');
   $('canvasPlaceholder').style.display = 'none';
+  applyCanvasSize();
 
   const url = URL.createObjectURL(file);
 
-  // --- Visual element (muted, drives canvas only) ---
   if (videoEl) { videoEl.pause(); videoEl.src = ''; }
   videoEl = document.createElement('video');
-  videoEl.muted = true;   // muted: browser skips audio decoding - intentional
-  videoEl.loop = true;
-  videoEl.playsInline = true;
-  videoEl.preload = 'auto';
-  videoEl.crossOrigin = 'anonymous';
+  videoEl.muted = true; videoEl.loop = true; videoEl.playsInline = true;
+  videoEl.preload = 'auto'; videoEl.crossOrigin = 'anonymous';
   videoEl.src = url;
   videoEl.play().catch(() => {});
 
-  // --- Audio element (NEVER muted, captures audio for the render pass) ---
-  // A separate element is essential because browsers don't decode audio
-  // for muted video elements, so createMediaElementSource on videoEl
-  // gives us nothing. This element is never muted from creation.
-  // We also call play/pause right here while we're still inside the
-  // file-picker's user gesture - iOS requires this to unlock programmatic
-  // playback for any future .play() calls on this element.
   if (audioEl) { audioEl.pause(); audioEl.src = ''; }
   audioEl = document.createElement('audio');
-  audioEl.src = url;
-  audioEl.preload = 'auto';
-  audioEl.loop = false;
-  // Unlock iOS autoplay during this user gesture (must be synchronous)
-  audioEl.play()
-    .then(() => { audioEl.pause(); audioEl.currentTime = 0; })
-    .catch(() => {}); // autoplay blocked - that's OK, we tried
+  audioEl.src = url; audioEl.preload = 'auto'; audioEl.loop = false;
+  audioEl.play().then(() => { audioEl.pause(); audioEl.currentTime = 0; }).catch(() => {});
 
   startPreviewLoop();
   $('recordBtn').disabled = false;
   $('coverBtn').disabled = false;
 });
 
-// Live preview updates on text/colour change
-$('headlineInput').addEventListener('input', () => {});
-$('textColourInput').addEventListener('input', () => {});
-
-// Template switcher
-document.querySelectorAll('.template-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    activeTemplate = btn.dataset.tpl;
-  });
-});
-
 // ---- Recording ----
 $('recordBtn').addEventListener('click', async () => {
-  if (recording) return;
-  if (!videoEl) return;
+  if (recording || !videoEl) return;
 
   const mimeType = bestMimeType();
   if (!HTMLCanvasElement.prototype.captureStream) {
-    alert('canvas.captureStream() is not supported in this browser. Try Chrome or Safari on iOS 14.5+, or Chrome on Android.');
-    recording = false;
-    $('recordBtn').disabled = false;
-    $('recordBtn').textContent = 'Render video';
+    alert('canvas.captureStream() not supported. Try Chrome on Android or Safari on iOS 14.5+.');
     return;
   }
 
-  // Canvas stream for video frames
+  // Apply the correct canvas size before recording
+  applyCanvasSize();
+
   recording = true;
   $('canvasWrap').classList.add('recording');
   $('recordBtn').disabled = true;
@@ -625,64 +693,39 @@ $('recordBtn').addEventListener('click', async () => {
 
   const canvasStream = canvas.captureStream(30);
 
-  // Audio capture via a separate never-muted <audio> element.
-  // We cannot use videoEl because browsers don't decode audio for
-  // muted elements, so createMediaElementSource gives us silence.
-  // audioEl uses the same blob URL but was never muted.
   if (audioEl) {
     try {
       activeAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
       await activeAudioCtx.resume();
-
-      // Reconnect to speakers: iOS suspends contexts that produce no
-      // audible output. Connecting to audioCtx.destination (speakers)
-      // alongside the capture destination keeps it alive.
       activeAudioCtx.addEventListener('statechange', () => {
-        if (activeAudioCtx && activeAudioCtx.state === 'suspended') {
-          activeAudioCtx.resume().catch(() => {});
-        }
+        if (activeAudioCtx && activeAudioCtx.state === 'suspended') activeAudioCtx.resume().catch(() => {});
       });
-
       const source = activeAudioCtx.createMediaElementSource(audioEl);
       const dest = activeAudioCtx.createMediaStreamDestination();
       source.connect(dest);
-      source.connect(activeAudioCtx.destination); // speakers: keeps iOS alive
+      source.connect(activeAudioCtx.destination);
       dest.stream.getAudioTracks().forEach(t => canvasStream.addTrack(t));
-    } catch (e) {
-      console.warn('Audio capture unavailable:', e.message);
-    }
+    } catch (e) { console.warn('Audio capture unavailable:', e.message); }
   }
 
-  // 1.5 Mbps cap: at 540x960 this produces ~5-6 MB per 30 seconds for
-  // browsers that honour the hint (Chrome/Android). iOS MediaRecorder
-  // ignores videoBitsPerSecond entirely, but the smaller canvas size
-  // above keeps iOS output reasonable regardless.
-  const recorderOpts = { videoBitsPerSecond: 1_500_000 };
+  const recorderOpts = { videoBitsPerSecond: BITRATES[activeQuality] };
   if (mimeType) recorderOpts.mimeType = mimeType;
   const recorder = new MediaRecorder(canvasStream, recorderOpts);
   const chunks = [];
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
-  let duration = 0;
   const totalDuration = videoEl.duration || 30;
+  videoEl.loop = false; videoEl.muted = true; videoEl.currentTime = 0;
+  if (audioEl) audioEl.currentTime = 0;
 
-  // Reset both elements to the start and play them in sync
-  videoEl.loop = false;
-  videoEl.muted = true;
-  videoEl.currentTime = 0;
-  if (audioEl) { audioEl.currentTime = 0; }
-
-  recorder.start(100); // collect data every 100ms
-
-  // Play visual and audio together
+  recorder.start(100);
   videoEl.play().catch(() => {});
   if (audioEl) audioEl.play().catch(() => {});
 
   const progressInterval = setInterval(() => {
-    duration = videoEl.currentTime;
-    const pct = Math.min(100, (duration / totalDuration) * 100);
+    const pct = Math.min(100, (videoEl.currentTime / totalDuration) * 100);
     $('recordFill').style.width = pct + '%';
-    $('recordTimeLabel').textContent = Math.round(duration) + 's / ' + Math.round(totalDuration) + 's';
+    $('recordTimeLabel').textContent = `${Math.round(videoEl.currentTime)}s / ${Math.round(totalDuration)}s`;
   }, 250);
 
   recorder.onstop = () => {
@@ -693,92 +736,60 @@ $('recordBtn').addEventListener('click', async () => {
     $('recordBtn').textContent = 'Render video';
     $('recordProgress').classList.remove('visible');
     $('recordFill').style.width = '0%';
-    // Stop audio playback
     if (audioEl) { audioEl.pause(); audioEl.currentTime = 0; }
-    videoEl.loop = true;
-    videoEl.muted = true;
-    // Release the AudioContext
-    if (activeAudioCtx) {
-      activeAudioCtx.close().catch(() => {});
-      activeAudioCtx = null;
-    }
+    videoEl.loop = true; videoEl.muted = true;
+    if (activeAudioCtx) { activeAudioCtx.close().catch(() => {}); activeAudioCtx = null; }
     videoEl.play().catch(() => {});
-
     const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
     const blob = new Blob(chunks, { type: mimeType || 'video/webm' });
     addOutput('video', blob, `PostMann-video.${ext}`, ext);
   };
 
-  videoEl.onended = () => {
-    if (audioEl) audioEl.pause();
-    if (recorder.state !== 'inactive') recorder.stop();
-  };
-  // Safety fallback in case onended doesn't fire
-  setTimeout(() => {
-    if (recorder.state !== 'inactive') recorder.stop();
-  }, (totalDuration + 2) * 1000);
+  videoEl.onended = () => { if (audioEl) audioEl.pause(); if (recorder.state !== 'inactive') recorder.stop(); };
+  setTimeout(() => { if (recorder.state !== 'inactive') recorder.stop(); }, (totalDuration + 2) * 1000);
 });
 
-// ---- Cover PNG export ----
+// ---- Cover PNG ----
 $('coverBtn').addEventListener('click', () => {
-  // Pause the live preview loop, draw a single frame, export, resume
   cancelAnimationFrame(animFrame);
+  applyCanvasSize();
   if (videoEl) {
-    videoEl.pause();
-    // Seek to first frame for a clean cover
-    videoEl.currentTime = 0;
+    videoEl.pause(); videoEl.currentTime = 0;
     const onSeeked = () => {
       videoEl.removeEventListener('seeked', onSeeked);
-      drawCurrentFrame();
-      exportCanvasPNG();
-      videoEl.play().catch(() => {});
-      startPreviewLoop();
+      drawCurrentFrame(); exportCanvasPNG();
+      videoEl.play().catch(() => {}); startPreviewLoop();
     };
     videoEl.addEventListener('seeked', onSeeked);
-  } else {
-    drawCurrentFrame();
-    exportCanvasPNG();
-    startPreviewLoop();
-  }
+  } else { drawCurrentFrame(); exportCanvasPNG(); startPreviewLoop(); }
 });
 
 function exportCanvasPNG() {
-  canvas.toBlob(blob => {
-    if (blob) addOutput('image', blob, 'PostMann-cover.png', 'png');
-  }, 'image/png');
+  canvas.toBlob(blob => { if (blob) addOutput('image', blob, 'PostMann-cover.png', 'png'); }, 'image/png');
 }
 
 // ---- Output cards ----
 function addOutput(type, blob, filename, ext) {
   const url = URL.createObjectURL(blob);
-  const section = $('outputsSection');
-  const grid = $('outputsGrid');
-  section.classList.remove('hidden');
-
+  const { w, h } = getCanvasDims();
+  const ar = `${w} / ${h}`;
+  $('outputsSection').classList.remove('hidden');
   const card = document.createElement('div');
   card.className = 'output-card';
   const label = type === 'video' ? 'Video' : 'Cover PNG';
   const media = type === 'video'
-    ? `<video src="${url}" autoplay loop muted playsinline></video>`
-    : `<img src="${url}" alt="">`;
-  card.innerHTML = `
-    <div class="output-label">${label}</div>
-    ${media}
-    <button type="button" class="download-btn">Download .${ext}</button>
-  `;
+    ? `<video src="${url}" autoplay loop muted playsinline style="aspect-ratio:${ar}"></video>`
+    : `<img src="${url}" alt="" style="aspect-ratio:${ar}">`;
+  card.innerHTML = `<div class="output-label">${label}</div>${media}<button type="button" class="download-btn">Download .${ext}</button>`;
   card.querySelector('.download-btn').addEventListener('click', () => {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    const a = document.createElement('a'); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
   });
-  grid.appendChild(card);
+  $('outputsGrid').appendChild(card);
 }
 
-// ---- Draw blank canvas on load ----
-drawBlankFrame();
+// ---- Boot ----
+drawBlankFrame(canvas.width, canvas.height);
 </script>
 </body>
 </html>
