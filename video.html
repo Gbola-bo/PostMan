@@ -197,6 +197,47 @@
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
+/* ===== Text spacing sliders (Leading / Kerning) ===== */
+.text-spacing-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.spacing-control {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.spacing-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  width: 40px;
+  flex-shrink: 0;
+}
+.spacing-slider {
+  flex: 1;
+  min-width: 0;
+  height: 3px;
+  accent-color: var(--brand-600);
+  cursor: pointer;
+}
+.spacing-value {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 /* ===== Divider ===== */
 .controls-divider { height: 1px; background: var(--border-subtle); margin: 18px 0; }
 
@@ -345,6 +386,20 @@
         <button type="button" class="tool-btn" id="underlineBtn" title="Underline" style="text-decoration:underline; font-size:14px;">U</button>
       </div>
 
+      <!-- Leading + Kerning sliders -->
+      <div class="text-spacing-row">
+        <div class="spacing-control">
+          <span class="spacing-label">Leading</span>
+          <input type="range" id="leadingSlider" class="spacing-slider" min="80" max="300" value="130" step="5">
+          <span class="spacing-value" id="leadingValue">130%</span>
+        </div>
+        <div class="spacing-control">
+          <span class="spacing-label">Kerning</span>
+          <input type="range" id="kerningSlider" class="spacing-slider" min="-10" max="40" value="0" step="1">
+          <span class="spacing-value" id="kerningValue">0px</span>
+        </div>
+      </div>
+
       <div class="controls-divider"></div>
 
       <!-- Quality selector -->
@@ -417,6 +472,8 @@ let textAlign     = 'center';
 let textBold      = true;
 let textItalic    = false;
 let textUnderline = false;
+let textLeading   = 1.30; // line height multiplier (slider range 80–300 maps to 0.80–3.00)
+let textKerning   = 0;    // letter spacing in canvas px (scaled with canvas width at render time)
 let recording     = false;
 let activeAudioCtx= null;
 
@@ -510,7 +567,7 @@ function drawTextBlock(lines, x, startY, lineHeight, fs) {
       ctx.save();
       ctx.strokeStyle = ctx.fillStyle;
       ctx.lineWidth = Math.max(1, Math.round(fs * 0.055));
-      ctx.beginPath(); ctx.moveTo(lx, ly + Math.round(fs * 0.12)); ctx.lineTo(lx + tw, ly + Math.round(fs * 0.12)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(lx, ly + Math.round(fs * 0.88)); ctx.lineTo(lx + tw, ly + Math.round(fs * 0.88)); ctx.stroke();
       ctx.restore();
     }
   });
@@ -550,12 +607,15 @@ function drawOverlay(W, H, headline, colour) {
     const style = textItalic ? 'italic ' : '';
     const weight = textBold ? '700' : '400';
     ctx.font = `${style}${weight} ${fs}px "Funnel Display", sans-serif`;
+    // Scale kerning proportionally with canvas width so it looks the same
+    // regardless of quality setting (540 / 720 / 1080px canvas).
+    ctx.letterSpacing = Math.round(textKerning * W / 390) + 'px';
     ctx.fillStyle = colour || '#ffffff';
     ctx.textAlign = ctxTextAlign();
     ctx.textBaseline = 'top';
     const x = getTextX(W);
     const pad = Math.round(W * 0.06);
-    const lineH = Math.round(fs * 1.3);
+    const lineH = Math.round(fs * textLeading);
     const lines = getWrappedLines(headline.trim(), W - pad * 2);
     // Position block so its bottom sits just above the bar
     const blockH = lines.length * lineH;
@@ -594,12 +654,13 @@ function drawTemplateFramed(W, H, headline, colour) {
     const style = textItalic ? 'italic ' : '';
     const weight = textBold ? '700' : '400';
     ctx.font = `${style}${weight} ${fs}px "Funnel Display", sans-serif`;
+    ctx.letterSpacing = Math.round(textKerning * W / 390) + 'px';
     ctx.fillStyle = colour || '#171717';
     ctx.textAlign = ctxTextAlign();
     ctx.textBaseline = 'top';
     const x = getTextX(W);
     const pad2 = Math.round(W * 0.06);
-    const lineH = Math.round(fs * 1.3);
+    const lineH = Math.round(fs * textLeading);
     const lines = getWrappedLines(headline.trim(), W - pad2 * 2);
     const startY = vY + vH + Math.round(H * 0.025);
     drawTextBlock(lines, x, startY, lineH, fs);
@@ -686,6 +747,18 @@ $('italicBtn').addEventListener('click', () => {
 $('underlineBtn').addEventListener('click', () => {
   textUnderline = !textUnderline;
   $('underlineBtn').classList.toggle('active', textUnderline);
+});
+
+// Leading slider (80–300 → 0.80–3.00 multiplier)
+$('leadingSlider').addEventListener('input', () => {
+  textLeading = parseInt($('leadingSlider').value) / 100;
+  $('leadingValue').textContent = $('leadingSlider').value + '%';
+});
+
+// Kerning slider (-10 to 40 canvas px at 390px design width)
+$('kerningSlider').addEventListener('input', () => {
+  textKerning = parseInt($('kerningSlider').value);
+  $('kerningValue').textContent = textKerning + 'px';
 });
 
 // Inline color swatch - keep swatch background in sync with picker value
