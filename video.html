@@ -36,20 +36,6 @@
   flex-direction: column;
   gap: 20px;
 }
-/* Mobile: side-by-side with a sticky preview so the canvas stays pinned
-   below the topbar while the controls scroll underneath it.
-   120px preview leaves ~226px for controls on a standard 390px phone. */
-@media (max-width: 599px) {
-  .video-layout { flex-direction: row; align-items: flex-start; gap: 12px; }
-  .video-preview-col {
-    flex-shrink: 0;
-    width: 120px;
-    position: sticky;
-    top: calc(56px + env(safe-area-inset-top) + 8px);
-    align-self: flex-start; /* prevents stretching to controls column height */
-  }
-  .video-controls-col { flex: 1; min-width: 0; }
-}
 @media (min-width: 600px) {
   .video-layout { flex-direction: row; align-items: flex-start; gap: 28px; }
   .video-preview-col { flex-shrink: 0; width: 200px; }
@@ -69,8 +55,6 @@
   margin: 0 auto;
   transition: aspect-ratio 0.2s;
 }
-/* Remove auto-centering on both breakpoints where layout is side-by-side */
-@media (max-width: 599px) { .canvas-wrap { max-width: 120px; margin: 0; } }
 @media (min-width: 600px) { .canvas-wrap { margin: 0; } }
 #previewCanvas { width: 100%; height: 100%; display: block; border-radius: 14px; }
 .canvas-placeholder {
