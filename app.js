@@ -1,4 +1,4 @@
-import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=8';
+import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=9';
 
 // ---------- DOM refs ----------
 const $ = (id) => document.getElementById(id);
@@ -289,17 +289,20 @@ function buildSlideFields(artboardName, key) {
       return;
     }
     fileNameSpan.textContent = file.name;
-    card.querySelector('.fit-mode-row').classList.remove('hidden'); // show Crop/Fit toggle
+    card.querySelector('.fit-mode-row').classList.remove('hidden'); // show toggle first
 
     const aspectInfo = aspectInfoFor(artboardName);
     if (!aspectInfo) { cropEditLink.classList.add('hidden'); return; }
 
-    if ((fitModes.get(key) || 'cover') === 'fit') {
+    const mode = fitModes.get(key) || 'cover';
+    if (mode === 'fit') {
       cropRects.delete(key);
       cropEditLink.classList.add('hidden');
-      return; // fit mode: use full image, skip crop modal
+      return;
     }
-    await promptCrop(key, file, typeSelect.value, aspectInfo.aspect, cropEditLink);
+    // Cover mode: show "Edit crop" but DON'T auto-open the modal.
+    // User picks their mode on the toggle first, then taps Edit crop if needed.
+    cropEditLink.classList.remove('hidden');
   });
 
   cropEditLink.addEventListener('click', async (e) => {
