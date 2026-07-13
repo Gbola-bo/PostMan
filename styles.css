@@ -506,3 +506,25 @@ img { max-width: 100%; display: block; }
 .result-card .caveat { font-size: 10px; color: var(--text-tertiary); margin-top: 4px; }
 
 .hidden { display: none !important; }
+/* ===== Fit-to-frame toggle ===== */
+.fit-mode-row { display: flex; gap: 6px; margin-top: 8px; }
+.fit-btn {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: center;
+  min-height: 36px;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+.fit-btn.active {
+  border-color: var(--brand-600);
+  background: var(--brand-50);
+  color: var(--brand-800);
+}
+.fit-btn:active { opacity: 0.8; }
