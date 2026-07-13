@@ -85,6 +85,24 @@
         "last": "templates/thumbnails/twitter-amber-last.png"
       },
       "vettedAt": "2026-07-13T16:04:38.584Z"
+    },
+    {
+      "id": "twitter-blue",
+      "name": "Twitter (Blue)",
+      "file": "templates/twitter-blue.psd",
+      "thumbnail": "templates/thumbnails/twitter-blue.png",
+      "artboards": [
+        "Cover",
+        "Middle",
+        "Last"
+      ],
+      "repeatable": "Middle",
+      "artboardPreviews": {
+        "cover": "templates/thumbnails/twitter-blue-cover.png",
+        "middle": "templates/thumbnails/twitter-blue-middle.png",
+        "last": "templates/thumbnails/twitter-blue-last.png"
+      },
+      "vettedAt": "2026-07-13T16:37:04.242Z"
     }
   ]
 }
