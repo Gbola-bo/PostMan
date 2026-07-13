@@ -33,6 +33,7 @@ window.addEventListener('popstate', (e) => {
 let manifest = null;
 let currentTemplate = null;
 const cropRects = new Map(); // keyed by slide key ('cover', 'middle-0', ...)
+const fitModes  = new Map(); // keyed by slide key → 'cover' | 'fit'  (default: 'cover')
 let middleCount = 1;
 let currentPageIndex = 0;
 const templateDetailsCache = new Map(); // template id -> metadata, fetched lazily on first open
@@ -133,6 +134,7 @@ async function openTemplate(template, { forceRebuild = false } = {}) {
 
   currentTemplate = { ...template, metadata };
   cropRects.clear();
+  fitModes.clear();
   middleCount = 1;
   renderForm();
 }
@@ -258,6 +260,10 @@ function buildSlideFields(artboardName, key) {
       <span class="file-name"></span>
       <span class="crop-edit-link hidden">Edit crop</span>
     </div>
+    <div class="fit-mode-row hidden">
+      <button type="button" class="fit-btn fit-btn-cover active">Crop to fill</button>
+      <button type="button" class="fit-btn fit-btn-fit">Fit to frame</button>
+    </div>
   `;
 
   const fileInput = card.querySelector('.field-file');
@@ -275,13 +281,23 @@ function buildSlideFields(artboardName, key) {
 
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files[0];
-    if (!file) { fileNameSpan.textContent = ''; cropRects.delete(key); return; }
+    if (!file) {
+      fileNameSpan.textContent = '';
+      cropRects.delete(key);
+      card.querySelector('.fit-mode-row').classList.add('hidden');
+      cropEditLink.classList.add('hidden');
+      return;
+    }
     fileNameSpan.textContent = file.name;
+    card.querySelector('.fit-mode-row').classList.remove('hidden'); // show Crop/Fit toggle
 
     const aspectInfo = aspectInfoFor(artboardName);
-    if (!aspectInfo) {
+    if (!aspectInfo) { cropEditLink.classList.add('hidden'); return; }
+
+    if ((fitModes.get(key) || 'cover') === 'fit') {
+      cropRects.delete(key);
       cropEditLink.classList.add('hidden');
-      return; // no Image placeholder on this artboard - nothing to crop against
+      return; // fit mode: use full image, skip crop modal
     }
     await promptCrop(key, file, typeSelect.value, aspectInfo.aspect, cropEditLink);
   });
@@ -294,6 +310,33 @@ function buildSlideFields(artboardName, key) {
     if (!aspectInfo) return;
     await promptCrop(key, file, typeSelect.value, aspectInfo.aspect, cropEditLink);
   });
+
+  // ── Fit-mode toggle ──────────────────────────────────────────────────
+  const fitBtnCover = card.querySelector('.fit-btn-cover');
+  const fitBtnFit   = card.querySelector('.fit-btn-fit');
+
+  function applyFitMode(mode) {
+    fitModes.set(key, mode);
+    fitBtnCover.classList.toggle('active', mode === 'cover');
+    fitBtnFit.classList.toggle('active', mode === 'fit');
+    if (mode === 'fit') {
+      cropRects.delete(key);
+      cropEditLink.classList.add('hidden');
+    } else if (fileInput.files[0]) {
+      cropEditLink.classList.remove('hidden');
+    }
+  }
+
+  fitBtnCover.addEventListener('click', async () => {
+    applyFitMode('cover');
+    // Re-open crop modal immediately if a file is already chosen
+    const file = fileInput.files[0];
+    if (file) {
+      const ai = aspectInfoFor(artboardName);
+      if (ai) await promptCrop(key, file, typeSelect.value, ai.aspect, cropEditLink);
+    }
+  });
+  fitBtnFit.addEventListener('click', () => applyFitMode('fit'));
 
   return card;
 }
@@ -377,6 +420,7 @@ function updateMiddleCount(newCount) {
   } else if (newCount < oldCount) {
     for (let i = oldCount - 1; i >= newCount; i--) {
       cropRects.delete(existingMiddlePages[i].dataset.key);
+      fitModes.delete(existingMiddlePages[i].dataset.key);
       existingMiddlePages[i].remove();
     }
   }
@@ -653,7 +697,7 @@ async function collectJobs() {
     const file = card.querySelector('.field-file').files[0] || null;
     let dataUrl = await fileToDataUrl(file);
     dataUrl = await cropDataUrlIfNeeded(key, dataUrl, attachmentType);
-    jobs.push({ artboard, label, headline, attachmentType, file, dataUrl, cropRect: cropRects.get(key) || null });
+    jobs.push({ artboard, label, headline, attachmentType, file, dataUrl, cropRect: cropRects.get(key) || null, fitMode: fitModes.get(key) || 'cover' });
   }
   return jobs;
 }
@@ -717,9 +761,9 @@ async function runOneJob(engine, job) {
     } catch (e) {
       logStatus(`${job.label}: frame extraction failed - ${e.message}`, 'err');
     }
-    if (frames && frames.length) await engine.insertFrames(job.artboard, frames);
+    if (frames && frames.length) await engine.insertFrames(job.artboard, frames, job.fitMode);
   } else if (job.dataUrl) {
-    await engine.insertStaticImage(job.artboard, job.dataUrl);
+    await engine.insertStaticImage(job.artboard, job.dataUrl, job.fitMode);
   }
 
   try {
