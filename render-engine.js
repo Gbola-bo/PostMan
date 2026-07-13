@@ -377,7 +377,7 @@ function buildArtboardKickoffOpenScript(artboardName, dataUrl) {
 `;
 }
 
-function buildArtboardFinalizeImagePlacementScript(artboardName) {
+function buildArtboardFinalizeImagePlacementScript(artboardName, fitMode) {
   return `
 (function(){
   ${ARTBOARD_HELPERS}
@@ -426,7 +426,8 @@ function buildArtboardFinalizeImagePlacementScript(artboardName) {
     var targetCx = (ob[0].value + ob[2].value) / 2, targetCy = (ob[1].value + ob[3].value) / 2;
     var nb = newLayer.bounds;
     var curW = nb[2].value - nb[0].value, curH = nb[3].value - nb[1].value;
-    var scalePct = Math.max(targetW / curW, targetH / curH) * 100;
+    // "cover" fills frame (may crop); "fit" contains full image (no crop).
+    var scalePct = (${fitMode === "fit" ? "Math.min" : "Math.max"})(targetW / curW, targetH / curH) * 100;
     newLayer.resize(scalePct, scalePct, AnchorPosition.TOPLEFT);
     var nb2 = newLayer.bounds;
     var curCx = (nb2[0].value + nb2[2].value) / 2, curCy = (nb2[1].value + nb2[3].value) / 2;
@@ -447,7 +448,7 @@ function buildArtboardFinalizeImagePlacementScript(artboardName) {
 `;
 }
 
-function buildArtboardInsertFrameScript(artboardName, frameIndex, isLastFrame, clipBaseName) {
+function buildArtboardInsertFrameScript(artboardName, frameIndex, isLastFrame, clipBaseName, fitMode) {
   // Used for GIF jobs - inserts ONE frame, named "_a_frame<N>".
   //
   // Multiple frames must all clip to the SAME underlying placeholder
@@ -512,7 +513,8 @@ function buildArtboardInsertFrameScript(artboardName, frameIndex, isLastFrame, c
     var targetCx = (ob[0].value + ob[2].value) / 2, targetCy = (ob[1].value + ob[3].value) / 2;
     var nb = newLayer.bounds;
     var curW = nb[2].value - nb[0].value, curH = nb[3].value - nb[1].value;
-    var scalePct = Math.max(targetW / curW, targetH / curH) * 100;
+    // "cover" fills frame (may crop); "fit" contains full image (no crop).
+    var scalePct = (${fitMode === "fit" ? "Math.min" : "Math.max"})(targetW / curW, targetH / curH) * 100;
     newLayer.resize(scalePct, scalePct, AnchorPosition.TOPLEFT);
     var nb2 = newLayer.bounds;
     var curCx = (nb2[0].value + nb2[2].value) / 2, curCy = (nb2[1].value + nb2[3].value) / 2;
@@ -1002,10 +1004,10 @@ export class PostManRenderEngine {
    * crop-tool pattern - this method does not crop, only resizes-to-fit
    * and re-clips.
    */
-  async insertStaticImage(artboardName, dataUrl) {
+  async insertStaticImage(artboardName, dataUrl, fitMode = "cover") {
     const ready = await this._waitForNewLayer(artboardName, dataUrl);
     if (!ready.ok) return ready;
-    const { outputs } = await this.channel.call(buildArtboardFinalizeImagePlacementScript(artboardName));
+    const { outputs } = await this.channel.call(buildArtboardFinalizeImagePlacementScript(artboardName, fitMode));
     return this._reportEditOutcome(outputs, `${artboardName} image`);
   }
 
@@ -1016,14 +1018,14 @@ export class PostManRenderEngine {
    * one full insertion round-trip PER FRAME (~1.5-2s each in testing) -
    * a 6-7 frame GIF slide takes on the order of 15-20+ seconds on its own.
    */
-  async insertFrames(artboardName, frames) {
+  async insertFrames(artboardName, frames, fitMode = "cover") {
     let clipBaseName = null;
     for (let i = 0; i < frames.length; i++) {
       const isLast = i === frames.length - 1;
       this._progress(`${artboardName}: inserting frame ${i + 1}/${frames.length}...`, 'info');
       const ready = await this._waitForNewLayer(artboardName, frames[i].dataUrl);
       if (!ready.ok) return ready;
-      const { outputs } = await this.channel.call(buildArtboardInsertFrameScript(artboardName, i, isLast, clipBaseName));
+      const { outputs } = await this.channel.call(buildArtboardInsertFrameScript(artboardName, i, isLast, clipBaseName, fitMode));
       const result = this._parseEditOutcome(outputs);
       if (!result.ok) {
         this._progress(`${artboardName}: frame ${i + 1} failed - ${result.message}`, 'err');
