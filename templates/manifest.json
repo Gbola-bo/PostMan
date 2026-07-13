@@ -67,6 +67,24 @@
         "cover": "templates/thumbnails/singletemplate-cover.png"
       },
       "vettedAt": "2026-06-30T19:32:14.875Z"
+    },
+    {
+      "id": "twitter-amber",
+      "name": "Twitter (Amber)",
+      "file": "templates/twitter-amber.psd",
+      "thumbnail": "templates/thumbnails/twitter-amber.png",
+      "artboards": [
+        "Cover",
+        "Middle",
+        "Last"
+      ],
+      "repeatable": "Middle",
+      "artboardPreviews": {
+        "cover": "templates/thumbnails/twitter-amber-cover.png",
+        "middle": "templates/thumbnails/twitter-amber-middle.png",
+        "last": "templates/thumbnails/twitter-amber-last.png"
+      },
+      "vettedAt": "2026-07-13T16:04:38.584Z"
     }
   ]
 }
