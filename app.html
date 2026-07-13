@@ -102,19 +102,19 @@
 <!-- ===== Crop modal (shared across all slide fields) ===== -->
 <div id="cropModalOverlay" class="modal-overlay">
   <div class="modal-card">
-    <h3>Choose what part of your photo shows here</h3>
+    <h3>Choose how your photo fits here</h3>
     <canvas id="cropCanvas"></canvas>
-    <div class="zoom-row">
+    <div class="zoom-row" id="cropZoomRow">
       <span>Zoom</span>
       <input type="range" id="cropZoomSlider" min="0" max="100" value="0">
     </div>
     <div class="modal-actions">
-      <button type="button" id="cropCancelBtn" class="btn-secondary">Use default</button>
+      <button type="button" id="cropCancelBtn" class="btn-secondary">Fit to frame</button>
       <button type="button" id="cropConfirmBtn" class="btn-primary">Confirm crop</button>
     </div>
   </div>
 </div>
 
-<script type="module" src="app.js?v=9"></script>
+<script type="module" src="app.js?v=10"></script>
 </body>
 </html>
