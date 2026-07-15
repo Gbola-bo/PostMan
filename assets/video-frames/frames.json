@@ -10,13 +10,21 @@
     "radius": "The corner radius of your Video Placeholder layer. Check the Properties panel in PS — it shows the px value. Use 0 if the placeholder has no rounded corners."
   },
   "story": [
-    { "src": "assets/video-frames/worldcup-story.png", "label": "World Cup Story", "radius": 15 }
+    { "src": "assets/video-frames/worldcup-story.png",        "label": "World Cup",        "radius": 15 },
+    { "src": "assets/video-frames/playstreet-pink-ST.png",    "label": "PS Pink",          "radius": 15 },
+    { "src": "assets/video-frames/playstreet-blue-ST.png",    "label": "PS Blue",          "radius": 15 },
+    { "src": "assets/video-frames/playstreet-amber-ST.png",   "label": "PS Amber",         "radius": 15 }
   ],
   "portrait": [
-     { "src": "assets/video-frames/worldcup-portrait.png", "label": "World Cup Portrait", "radius": 15 }
+    { "src": "assets/video-frames/worldcup-portrait.png",     "label": "World Cup",        "radius": 15 },
+    { "src": "assets/video-frames/playstreet-pink-PR.png",    "label": "PS Pink",          "radius": 15 },
+    { "src": "assets/video-frames/playstreet-blue-PR.png",    "label": "PS Blue",          "radius": 15 },
+    { "src": "assets/video-frames/playstreet-amber-PR.png",   "label": "PS Amber",         "radius": 15 }
   ],
   "square": [
-   { "src": "assets/video-frames/worldcup-square.png", "label": "World Cup Square", "radius": 15 }
+    { "src": "assets/video-frames/worldcup-square.png",       "label": "World Cup",        "radius": 15 },
+    { "src": "assets/video-frames/playstreet-pink-SQ.png",    "label": "PS Pink",          "radius": 15 },
+    { "src": "assets/video-frames/playstreet-blue-SQ.png",    "label": "PS Blue",          "radius": 15 },
+    { "src": "assets/video-frames/playstreet-amber-SQ.png",   "label": "PS Amber",         "radius": 15 }
   ]
 }
-
