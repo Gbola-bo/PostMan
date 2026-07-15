@@ -20,37 +20,4 @@
    { "src": "assets/video-frames/worldcup-square.png", "label": "World Cup Square", "radius": 15 }
   ]
 }
-/*playstreet-pink frame
-  "story": [
-    { "src": "assets/video-frames/playstreet-pink-ST.png", "label": "PlayStreet Pink Story", "radius": 15 }
-  ],
-  "portrait": [
-     { "src": "assets/video-frames/playstreet-pink-PR.png", "label": "PlayStreet Pink Portrait", "radius": 15 }
-  ],
-  "square": [
-   { "src": "assets/video-frames/playstreet-pink-SQ.png", "label": "PlayStreet Pink Square", "radius": 15 }
-  ],
 
-//playstreet-blue frame
- "story": [
-    { "src": "assets/video-frames/playstreet-blue-ST.png", "label": "PlayStreet Blue Story", "radius": 15 }
-  ],
-  "portrait": [
-     { "src": "assets/video-frames/playstreet-blue-PR.png", "label": "PlayStreet Blue Portrait", "radius": 15 }
-  ],
-  "square": [
-   { "src": "assets/video-frames/playstreet-blue-SQ.png", "label": "PlayStreet Blue Square", "radius": 15 }
-  ],
-
-//playstreet-amber frame
- "story": [
-    { "src": "assets/video-frames/playstreet-amber-ST.png", "label": "PlayStreet Amber Story", "radius": 15 }
-  ],
-  "portrait": [
-     { "src": "assets/video-frames/playstreet-amber-PR.png", "label": "PlayStreet Amber Portrait", "radius": 15 }
-  ],
-  "square": [
-   { "src": "assets/video-frames/playstreet-amber-SQ.png", "label": "PlayStreet Amber Square", "radius": 15 }
-  ]
-
-}
