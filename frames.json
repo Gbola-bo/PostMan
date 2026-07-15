@@ -10,27 +10,12 @@
     "radius": "The corner radius of your Video Placeholder layer. Check the Properties panel in PS — it shows the px value. Use 0 if the placeholder has no rounded corners."
   },
   "story": [
-    {
-    "id": "worldcup-story",
-    "label": "World Cup Story",
-    "file": "worldcup-story.png",
-    "radius": 15
-  }
+    { "src": "assets/video-frames/worldcup-story.png", "label": "World Cup Story", "radius": 15 }
   ],
   "portrait": [
-     {
-    "id": "worldcup-portrait",
-    "label": "World Cup Portrait",
-    "file": "worldcup-portrait.png",
-    "radius": 15
-  }
+     { "src": "assets/video-frames/worldcup-portrait.png", "label": "World Cup Portrait", "radius": 15 }
   ],
   "square": [
-    {
-    "id": "worldcup-square",
-    "label": "World Cup Square",
-    "file": "worldcup-square.png",
-    "radius": 15
-  }
+   { "src": "assets/video-frames/worldcup-square.png", "label": "World Cup Square", "radius": 15 }
   ]
 }
