@@ -1,4 +1,4 @@
-import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=10';
+import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=11';
 
 // ---------- DOM refs ----------
 const $ = (id) => document.getElementById(id);
@@ -260,10 +260,6 @@ function buildSlideFields(artboardName, key) {
       <span class="file-name"></span>
       <span class="crop-edit-link hidden">Edit crop</span>
     </div>
-    <div class="fit-mode-row hidden">
-      <button type="button" class="fit-btn fit-btn-cover active">Crop to fill</button>
-      <button type="button" class="fit-btn fit-btn-fit">Fit to frame</button>
-    </div>
   `;
 
   const fileInput = card.querySelector('.field-file');
@@ -284,25 +280,16 @@ function buildSlideFields(artboardName, key) {
     if (!file) {
       fileNameSpan.textContent = '';
       cropRects.delete(key);
-      card.querySelector('.fit-mode-row').classList.add('hidden');
+      fitModes.delete(key);
       cropEditLink.classList.add('hidden');
       return;
     }
     fileNameSpan.textContent = file.name;
-    card.querySelector('.fit-mode-row').classList.remove('hidden'); // show toggle first
-
+    cropEditLink.classList.add('hidden');
     const aspectInfo = aspectInfoFor(artboardName);
-    if (!aspectInfo) { cropEditLink.classList.add('hidden'); return; }
-
-    const mode = fitModes.get(key) || 'cover';
-    if (mode === 'fit') {
-      cropRects.delete(key);
-      cropEditLink.classList.add('hidden');
-      return;
-    }
-    // Cover mode: show "Edit crop" but DON'T auto-open the modal.
-    // User picks their mode on the toggle first, then taps Edit crop if needed.
-    cropEditLink.classList.remove('hidden');
+    if (!aspectInfo) return;
+    // Open modal immediately — modal is where the user picks crop vs fit
+    await promptCrop(key, file, typeSelect.value, aspectInfo.aspect, cropEditLink, fileInput);
   });
 
   cropEditLink.addEventListener('click', async (e) => {
@@ -311,43 +298,7 @@ function buildSlideFields(artboardName, key) {
     if (!file) return;
     const aspectInfo = aspectInfoFor(artboardName);
     if (!aspectInfo) return;
-    await promptCrop(key, file, typeSelect.value, aspectInfo.aspect, cropEditLink);
-  });
-
-  // ── Fit-mode toggle ──────────────────────────────────────────────────
-  const fitBtnCover = card.querySelector('.fit-btn-cover');
-  const fitBtnFit   = card.querySelector('.fit-btn-fit');
-
-  function applyFitMode(mode) {
-    fitModes.set(key, mode);
-    fitBtnCover.classList.toggle('active', mode === 'cover');
-    fitBtnFit.classList.toggle('active', mode === 'fit');
-    if (mode === 'fit') {
-      cropRects.delete(key);
-      cropEditLink.classList.add('hidden');
-    } else if (fileInput.files[0]) {
-      cropEditLink.classList.remove('hidden');
-    }
-  }
-
-  fitBtnCover.addEventListener('click', async () => {
-    applyFitMode('cover');
-    // Re-open crop modal so they can set the crop
-    const file = fileInput.files[0];
-    if (file) {
-      const ai = aspectInfoFor(artboardName);
-      if (ai) await promptCrop(key, file, typeSelect.value, ai.aspect, cropEditLink);
-    }
-  });
-  fitBtnFit.addEventListener('click', async () => {
-    // Open the modal directly to the fit preview so they can see it
-    const file = fileInput.files[0];
-    if (file) {
-      const ai = aspectInfoFor(artboardName);
-      if (ai) await promptCrop(key, file, typeSelect.value, ai.aspect, cropEditLink);
-    } else {
-      applyFitMode('fit'); // no file yet, just pre-select the mode
-    }
+    await promptCrop(key, file, typeSelect.value, aspectInfo.aspect, cropEditLink, fileInput);
   });
 
   return card;
@@ -440,7 +391,7 @@ function updateMiddleCount(newCount) {
   setupCarouselNav();
 }
 
-async function promptCrop(key, file, attachmentType, aspect, cropEditLink) {
+async function promptCrop(key, file, attachmentType, aspect, cropEditLink, fileInput = null) {
   let previewSrc;
   try {
     if (attachmentType === 'gif') {
@@ -454,49 +405,47 @@ async function promptCrop(key, file, attachmentType, aspect, cropEditLink) {
     return;
   }
   if (!previewSrc) return;
-  const result = await openCropModal(previewSrc, aspect);
-  if (result === 'fit') {
-    // User chose Fit to frame inside the modal
+
+  const result = await openCropModal(previewSrc, aspect, () => {
+    // "Change" button in modal: trigger file picker (sync, inside user gesture)
+    if (fileInput) fileInput.click();
+  });
+
+  if (result === 'change') {
+    // User tapped Change — file picker opened, new selection will trigger modal again
+    return;
+  } else if (result === 'fit') {
     fitModes.set(key, 'fit');
     cropRects.delete(key);
-    cropEditLink.classList.remove('hidden'); // keep visible so they can reopen modal
-    // Update the toggle buttons to reflect fit is active
-    const card = document.querySelector(`.slide-card[data-key="${key}"]`);
-    if (card) {
-      card.querySelector('.fit-btn-cover')?.classList.remove('active');
-      card.querySelector('.fit-btn-fit')?.classList.add('active');
-    }
+    cropEditLink.classList.remove('hidden');
   } else if (result) {
-    // User confirmed a crop rect
     fitModes.set(key, 'cover');
     cropRects.set(key, result);
     cropEditLink.classList.remove('hidden');
-    const card = document.querySelector(`.slide-card[data-key="${key}"]`);
-    if (card) {
-      card.querySelector('.fit-btn-cover')?.classList.add('active');
-      card.querySelector('.fit-btn-fit')?.classList.remove('active');
-    }
-  } else {
-    // Modal dismissed without choosing (shouldn't happen with new flow)
-    cropRects.delete(key);
-    cropEditLink.classList.add('hidden');
   }
+  // null = closed via X without saving; preserve previous state, keep Edit crop visible
 }
 
-// ---------- Crop modal (pan/zoom to crop, or fit-to-frame preview) ----------
+// ---------- Crop / Fit modal ----------
 const cropModalOverlay = $('cropModalOverlay');
-const cropCanvas = $('cropCanvas');
-const cropZoomSlider = $('cropZoomSlider');
-const cropZoomRow = $('cropZoomRow');
-const cropCancelBtn = $('cropCancelBtn');
-const cropConfirmBtn = $('cropConfirmBtn');
+const cropCanvas       = $('cropCanvas');
+const cropZoomSlider   = $('cropZoomSlider');
+const cropZoomRow      = $('cropZoomRow');
+const cropZoomMinus    = $('cropZoomMinus');
+const cropZoomPlus     = $('cropZoomPlus');
+const cropCloseBtn     = $('cropCloseBtn');
+const cropFitBtn       = $('cropFitBtn');
+const cropChangeBtn    = $('cropChangeBtn');
+const cropSaveBtn      = $('cropSaveBtn');
+const cropHint         = $('cropHint');
 
-function openCropModal(imageSrc, targetAspect) {
+function openCropModal(imageSrc, targetAspect, onChangePhoto) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
-      const availW = Math.min(360, window.innerWidth - 80);
-      const availH = Math.min(360, window.innerHeight * 0.88 - 220);
+      // Canvas size: generous on the new full-height modal
+      const availW = Math.min(440, window.innerWidth - 40);
+      const availH = Math.min(440, window.innerHeight * 0.9 - 280);
       let canvasW, canvasH;
       if (targetAspect >= 1) {
         canvasW = availW;
@@ -507,22 +456,20 @@ function openCropModal(imageSrc, targetAspect) {
         canvasW = Math.round(canvasH * targetAspect);
         if (canvasW > availW) { canvasW = Math.round(availW); canvasH = Math.round(canvasW / targetAspect); }
       }
-      cropCanvas.width = canvasW;
+      cropCanvas.width  = canvasW;
       cropCanvas.height = canvasH;
       const ctx = cropCanvas.getContext('2d');
 
-      // ── Crop mode state ──────────────────────────────────────────────
+      // ── Crop mode state ──
       const minScale = Math.max(canvasW / img.naturalWidth, canvasH / img.naturalHeight);
       const maxScale = minScale * 4;
       let scale = minScale;
-      let offsetX = (canvasW - img.naturalWidth * scale) / 2;
+      let offsetX = (canvasW - img.naturalWidth  * scale) / 2;
       let offsetY = (canvasH - img.naturalHeight * scale) / 2;
 
       function clampOffsets() {
-        const minOffsetX = canvasW - img.naturalWidth * scale;
-        const minOffsetY = canvasH - img.naturalHeight * scale;
-        offsetX = Math.min(0, Math.max(minOffsetX, offsetX));
-        offsetY = Math.min(0, Math.max(minOffsetY, offsetY));
+        offsetX = Math.min(0, Math.max(canvasW - img.naturalWidth  * scale, offsetX));
+        offsetY = Math.min(0, Math.max(canvasH - img.naturalHeight * scale, offsetY));
       }
       function renderCrop() {
         ctx.clearRect(0, 0, canvasW, canvasH);
@@ -533,126 +480,116 @@ function openCropModal(imageSrc, targetAspect) {
         ctx.restore();
       }
 
-      // ── Fit-to-frame preview ─────────────────────────────────────────
-      // Draws the full image scaled to CONTAIN within the canvas, centred,
-      // with a subtle hatched letterbox so the user can see the frame boundary.
+      // ── Fit-to-frame preview ──
+      // Shows the full image contained within the canvas with a checkerboard
+      // letterbox so the user can clearly see no part of the image is lost.
       function renderFitPreview() {
         ctx.clearRect(0, 0, canvasW, canvasH);
-        // Letterbox background: light checkerboard so blank area is obvious
-        const tileSize = 10;
-        for (let ty = 0; ty < canvasH; ty += tileSize) {
-          for (let tx = 0; tx < canvasW; tx += tileSize) {
-            ctx.fillStyle = (Math.floor(tx / tileSize) + Math.floor(ty / tileSize)) % 2 === 0
-              ? '#e8e8e8' : '#d4d4d4';
-            ctx.fillRect(tx, ty, tileSize, tileSize);
+        const tile = 10;
+        for (let ty = 0; ty < canvasH; ty += tile) {
+          for (let tx = 0; tx < canvasW; tx += tile) {
+            ctx.fillStyle = ((tx / tile + ty / tile) % 2 === 0) ? '#e8e8e8' : '#d4d4d4';
+            ctx.fillRect(tx, ty, tile, tile);
           }
         }
-        // Scale image to fit entirely within canvas (contain)
-        const fitScale = Math.min(canvasW / img.naturalWidth, canvasH / img.naturalHeight);
-        const dw = img.naturalWidth  * fitScale;
-        const dh = img.naturalHeight * fitScale;
-        const dx = (canvasW - dw) / 2;
-        const dy = (canvasH - dh) / 2;
+        const fs = Math.min(canvasW / img.naturalWidth, canvasH / img.naturalHeight);
+        const dw = img.naturalWidth * fs, dh = img.naturalHeight * fs;
+        const dx = (canvasW - dw) / 2, dy = (canvasH - dh) / 2;
         ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, dx, dy, dw, dh);
-        // Thin border around the image so the edge is clear
-        ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(dx, dy, dw, dh);
+        ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 1;
+        ctx.strokeRect(dx + 0.5, dy + 0.5, dw - 1, dh - 1);
       }
 
-      // ── Modal mode: 'crop' or 'fit' ──────────────────────────────────
+      // ── Modal mode toggle ──
       let modalMode = 'crop';
 
-      function enterCropMode() {
+      function showCropMode() {
         modalMode = 'crop';
         cropZoomRow.style.display = '';
-        cropCancelBtn.textContent = 'Fit to frame';
-        cropCancelBtn.classList.remove('btn-primary');
-        cropCancelBtn.classList.add('btn-secondary');
-        cropConfirmBtn.textContent = 'Confirm crop';
+        cropHint.textContent = 'Drag to reposition · use slider to zoom';
+        cropFitBtn.classList.remove('active');
+        cropSaveBtn.textContent = 'Save';
         renderCrop();
       }
-
-      function enterFitMode() {
+      function showFitMode() {
         modalMode = 'fit';
-        cropZoomRow.style.display = 'none';   // zoom irrelevant for fit
-        cropCancelBtn.textContent = 'Back to crop';
-        cropCancelBtn.classList.remove('btn-secondary');
-        cropCancelBtn.classList.add('btn-primary');
-        cropConfirmBtn.textContent = 'Use fit to frame';
+        cropZoomRow.style.display = 'none';
+        cropHint.textContent = 'Full image will be fitted inside the frame — no cropping';
+        cropFitBtn.classList.add('active');
         renderFitPreview();
       }
 
-      // ── Initial render (crop mode) ───────────────────────────────────
+      // Initial state
       cropZoomSlider.value = 0;
       clampOffsets();
-      enterCropMode();
+      showCropMode();
 
-      // ── Zoom slider ──────────────────────────────────────────────────
+      // ── Zoom ──
       cropZoomSlider.oninput = () => {
         if (modalMode !== 'crop') return;
         const t = cropZoomSlider.value / 100;
         const newScale = minScale + t * (maxScale - minScale);
-        const centerImgX = (canvasW / 2 - offsetX) / scale;
-        const centerImgY = (canvasH / 2 - offsetY) / scale;
+        const cx = (canvasW / 2 - offsetX) / scale;
+        const cy = (canvasH / 2 - offsetY) / scale;
         scale = newScale;
-        offsetX = canvasW / 2 - centerImgX * scale;
-        offsetY = canvasH / 2 - centerImgY * scale;
+        offsetX = canvasW / 2 - cx * scale;
+        offsetY = canvasH / 2 - cy * scale;
         clampOffsets();
         renderCrop();
       };
+      cropZoomMinus.onclick = () => {
+        cropZoomSlider.value = Math.max(0, parseInt(cropZoomSlider.value) - 10);
+        cropZoomSlider.dispatchEvent(new Event('input'));
+      };
+      cropZoomPlus.onclick = () => {
+        cropZoomSlider.value = Math.min(100, parseInt(cropZoomSlider.value) + 10);
+        cropZoomSlider.dispatchEvent(new Event('input'));
+      };
 
-      // ── Drag to pan (crop mode only) ─────────────────────────────────
-      let dragging = false, dragStartX = 0, dragStartY = 0, startOffsetX = 0, startOffsetY = 0;
-      function pointerDown(x, y) {
-        if (modalMode !== 'crop') return;
-        dragging = true; dragStartX = x; dragStartY = y;
-        startOffsetX = offsetX; startOffsetY = offsetY;
-        cropCanvas.style.cursor = 'grabbing';
-      }
-      function pointerMove(x, y) {
-        if (!dragging || modalMode !== 'crop') return;
-        offsetX = startOffsetX + (x - dragStartX);
-        offsetY = startOffsetY + (y - dragStartY);
-        clampOffsets();
-        renderCrop();
-      }
-      function pointerUp() { dragging = false; cropCanvas.style.cursor = 'grab'; }
+      // ── Drag to pan ──
+      let dragging = false, dragX = 0, dragY = 0, startOX = 0, startOY = 0;
+      function pDown(x, y) { if (modalMode !== 'crop') return; dragging = true; dragX = x; dragY = y; startOX = offsetX; startOY = offsetY; }
+      function pMove(x, y) { if (!dragging || modalMode !== 'crop') return; offsetX = startOX + (x - dragX); offsetY = startOY + (y - dragY); clampOffsets(); renderCrop(); }
+      function pUp() { dragging = false; }
 
-      const windowMouseMoveHandler = (e) => pointerMove(e.clientX, e.clientY);
-      cropCanvas.onmousedown  = (e) => pointerDown(e.clientX, e.clientY);
-      window.addEventListener('mousemove', windowMouseMoveHandler);
-      window.addEventListener('mouseup', pointerUp);
-      cropCanvas.ontouchstart = (e) => { const t = e.touches[0]; pointerDown(t.clientX, t.clientY); };
-      cropCanvas.ontouchmove  = (e) => { const t = e.touches[0]; pointerMove(t.clientX, t.clientY); e.preventDefault(); };
-      cropCanvas.ontouchend   = pointerUp;
+      const mmh = (e) => pMove(e.clientX, e.clientY);
+      cropCanvas.onmousedown  = (e) => pDown(e.clientX, e.clientY);
+      window.addEventListener('mousemove', mmh);
+      window.addEventListener('mouseup', pUp);
+      cropCanvas.ontouchstart = (e) => { const t = e.touches[0]; pDown(t.clientX, t.clientY); };
+      cropCanvas.ontouchmove  = (e) => { const t = e.touches[0]; pMove(t.clientX, t.clientY); e.preventDefault(); };
+      cropCanvas.ontouchend   = pUp;
 
-      // ── Cleanup ──────────────────────────────────────────────────────
       function cleanup() {
-        window.removeEventListener('mousemove', windowMouseMoveHandler);
-        window.removeEventListener('mouseup', pointerUp);
-        // Reset button labels for next open
-        enterCropMode();
+        window.removeEventListener('mousemove', mmh);
+        window.removeEventListener('mouseup', pUp);
+        showCropMode(); // reset for next open
         cropModalOverlay.classList.remove('open');
       }
 
-      // ── Button handlers ──────────────────────────────────────────────
-      cropCancelBtn.onclick = () => {
-        if (modalMode === 'crop') {
-          enterFitMode();           // first click: show fit preview
-        } else {
-          enterCropMode();          // "Back to crop": return to crop mode
-        }
+      // ── Buttons ──
+      cropCloseBtn.onclick = () => { cleanup(); resolve(null); };
+
+      cropFitBtn.onclick = () => {
+        if (modalMode === 'crop') showFitMode();
+        else showCropMode();
       };
 
-      cropConfirmBtn.onclick = () => {
+      cropChangeBtn.onclick = () => {
+        // Call onChangePhoto SYNCHRONOUSLY here (still in user gesture) before async cleanup
+        if (onChangePhoto) onChangePhoto();
+        cleanup();
+        resolve('change');
+      };
+
+      cropSaveBtn.onclick = () => {
         if (modalMode === 'fit') {
           cleanup();
-          resolve('fit');           // caller stores fitMode='fit'
+          resolve('fit');
         } else {
           const rect = { x: -offsetX / scale, y: -offsetY / scale, width: canvasW / scale, height: canvasH / scale };
           cleanup();
-          resolve(rect);            // caller stores cropRect + fitMode='cover'
+          resolve(rect);
         }
       };
 
@@ -662,6 +599,7 @@ function openCropModal(imageSrc, targetAspect) {
     img.src = imageSrc;
   });
 }
+
 
 // ---------- Minimal ZIP writer (STORE mode - uncompressed but valid,
 // no external library needed) so "Download all" produces one real .zip
