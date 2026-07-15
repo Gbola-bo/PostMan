@@ -364,22 +364,139 @@ img { max-width: 100%; display: block; }
 
 /* ===== Crop modal ===== */
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65);
-  display: none; align-items: center; justify-content: center; z-index: 100;
-  padding: 16px;
+  position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+  display: none; align-items: flex-end; justify-content: center; z-index: 100;
 }
 .modal-overlay.open { display: flex; }
-.modal-card {
-  background: var(--surface); border-radius: var(--radius-lg);
-  padding: 18px; max-width: 92vw; max-height: 88vh; overflow-y: auto;
+
+/* ===== New crop / fit modal ===== */
+.crop-modal-card {
+  background: var(--surface);
+  border-radius: 24px 24px 0 0;
+  width: 100%;
+  max-width: 520px;
+  max-height: 92dvh;
+  overflow-y: auto;
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: cropModalIn 0.28s cubic-bezier(0.16,1,0.3,1);
 }
-.modal-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
-#cropCanvas { border: 1px solid var(--border-default); border-radius: 6px; cursor: grab; touch-action: none; display: block; }
-.zoom-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
-.zoom-row span { font-size: 11px; color: var(--text-secondary); }
-.zoom-row input[type="range"] { flex: 1; }
-.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
-.modal-actions .btn-primary, .modal-actions .btn-secondary { flex: 1 1 auto; }
+@media (min-width: 520px) {
+  .modal-overlay { align-items: center; }
+  .crop-modal-card {
+    border-radius: 24px;
+    padding: 24px;
+    max-height: 88dvh;
+  }
+}
+@keyframes cropModalIn {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* Header: title + X */
+.crop-modal-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.crop-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+.crop-close-btn {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface-secondary);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.crop-close-btn:active { background: var(--surface-tertiary); }
+
+/* Canvas */
+.crop-canvas-area { display: flex; justify-content: center; }
+#cropCanvas {
+  border-radius: 12px;
+  cursor: grab;
+  touch-action: none;
+  display: block;
+  background: #000;
+}
+#cropCanvas:active { cursor: grabbing; }
+
+/* Hint text */
+.crop-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-align: center;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Zoom row with − / + buttons */
+.crop-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-secondary);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+}
+.zoom-step-btn {
+  width: 28px; height: 28px;
+  border: none; background: transparent;
+  font-size: 22px; line-height: 1;
+  color: var(--brand-600);
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.zoom-step-btn:active { opacity: 0.6; }
+.crop-zoom-slider {
+  flex: 1;
+  accent-color: var(--brand-600);
+  height: 4px;
+  cursor: pointer;
+}
+
+/* Three action buttons at bottom */
+.crop-action-row {
+  display: flex;
+  justify-content: space-around;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+.crop-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-height: 60px;
+  min-width: 72px;
+  transition: background 0.12s, color 0.12s;
+}
+.crop-action-btn:active { background: var(--surface-secondary); }
+.crop-action-btn.active {
+  color: var(--brand-600);
+}
+.crop-save-btn { color: var(--brand-600); font-weight: 700; }
+.crop-save-btn:active { background: var(--brand-50); }
+
 
 /* ===== Progress / status ===== */
 .status-log {
