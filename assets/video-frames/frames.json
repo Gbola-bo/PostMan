@@ -18,9 +18,9 @@
   ],
   "square": [
    { "src": "assets/video-frames/worldcup-square.png", "label": "World Cup Square", "radius": 15 }
-  ],
-
-//playstreet-pink frame
+  ]
+}
+/*playstreet-pink frame
   "story": [
     { "src": "assets/video-frames/playstreet-pink-ST.png", "label": "PlayStreet Pink Story", "radius": 15 }
   ],
