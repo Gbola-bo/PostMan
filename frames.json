@@ -1,0 +1,18 @@
+{
+  "_instructions": {
+    "how_to_add_a_frame": [
+      "1. In Photoshop: click the eye icon on your Video Placeholder layer to HIDE it",
+      "2. Export the file as PNG with transparency enabled (Export As → PNG)",
+      "3. Upload the PNG to assets/video-frames/ in your GitHub repo",
+      "4. Add one entry to this file under the matching ratio (story/portrait/square)",
+      "5. Push — done"
+    ],
+    "radius": "The corner radius of your Video Placeholder layer. Check the Properties panel in PS — it shows the px value. Use 0 if the placeholder has no rounded corners."
+  },
+  "story": [
+  ],
+  "portrait": [
+  ],
+  "square": [
+  ]
+}
