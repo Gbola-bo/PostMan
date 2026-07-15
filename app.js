@@ -1,4 +1,4 @@
-import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=15';
+import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=16';
 
 // ---------- DOM refs ----------
 const $ = (id) => document.getElementById(id);
@@ -508,7 +508,6 @@ function openCropModal(imageSrc, targetAspect, onChangePhoto) {
         cropZoomRow.style.display = '';
         cropHint.textContent = 'Drag to reposition · use slider to zoom';
         cropFitBtn.classList.remove('active');
-        cropSaveBtn.textContent = 'Save';
         renderCrop();
       }
       function showFitMode() {
