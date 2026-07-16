@@ -296,8 +296,8 @@ const removeTemplateBtn     = $('removeTemplateBtn');
 const removeOutputBox       = $('removeOutputBox');
 const copyRemovedManifestBtn = $('copyRemovedManifestBtn');
 
-let removeManifest   = null;  // the parsed manifest object
-let selectedRemoveId = null;  // id of the template the user clicked
+let removeManifest    = null;  // the parsed manifest object
+let selectedRemoveIds = new Set(); // ids of templates the user has selected
 
 // ── Parse the pasted manifest and render the picker ──────────────────────
 loadTemplatesBtn.addEventListener('click', () => {
@@ -318,11 +318,11 @@ loadTemplatesBtn.addEventListener('click', () => {
   }
 
   // Reset state
-  selectedRemoveId = null;
-  removeTemplateBtn.disabled = true;
+  selectedRemoveIds.clear();
+  updateRemoveBtn();
   removeOutputBox.classList.add('hidden');
 
-  // Render one card per template
+  // Render one card per template — clicking toggles selection
   removeTemplateList.innerHTML = '';
   templates.forEach(t => {
     const card = document.createElement('button');
@@ -343,20 +343,21 @@ loadTemplatesBtn.addEventListener('click', () => {
           ${t.repeatable ? ` · repeatable: ${escapeHtmlAttr(t.repeatable)}` : ''}
         </div>
       </div>
-      <div style="font-size:11px; color:var(--text-tertiary); white-space:nowrap;">Select →</div>
+      <div class="card-check" style="font-size:11px; color:var(--text-tertiary); white-space:nowrap;">Tap to select</div>
     `;
     card.addEventListener('click', () => {
-      // Deselect all, select this one
-      removeTemplateList.querySelectorAll('button').forEach(b => {
-        b.style.borderColor = 'var(--border-default)';
-        b.style.background  = 'var(--surface)';
-        b.querySelector('div:last-child').textContent = 'Select →';
-      });
-      card.style.borderColor = 'var(--danger-text)';
-      card.style.background  = 'var(--danger-bg)';
-      card.querySelector('div:last-child').textContent = '✓ Selected';
-      selectedRemoveId = t.id;
-      removeTemplateBtn.disabled = false;
+      if (selectedRemoveIds.has(t.id)) {
+        selectedRemoveIds.delete(t.id);
+        card.style.borderColor = 'var(--border-default)';
+        card.style.background  = 'var(--surface)';
+        card.querySelector('.card-check').textContent = 'Tap to select';
+      } else {
+        selectedRemoveIds.add(t.id);
+        card.style.borderColor = 'var(--danger-text)';
+        card.style.background  = 'var(--danger-bg)';
+        card.querySelector('.card-check').textContent = '✓ Selected';
+      }
+      updateRemoveBtn();
     });
     removeTemplateList.appendChild(card);
   });
@@ -364,35 +365,39 @@ loadTemplatesBtn.addEventListener('click', () => {
   removePickerBox.classList.remove('hidden');
 });
 
-// ── Remove the selected template and generate outputs ─────────────────────
+function updateRemoveBtn() {
+  const n = selectedRemoveIds.size;
+  removeTemplateBtn.disabled = n === 0;
+  removeTemplateBtn.textContent = n === 0
+    ? 'Remove selected templates'
+    : n === 1
+      ? 'Remove 1 selected template'
+      : `Remove ${n} selected templates`;
+}
+
+// ── Remove selected templates and generate outputs ────────────────────────
 removeTemplateBtn.addEventListener('click', () => {
-  if (!selectedRemoveId || !removeManifest) return;
+  if (!selectedRemoveIds.size || !removeManifest) return;
 
-  const entry = removeManifest.templates.find(t => t.id === selectedRemoveId);
-  if (!entry) { alert('Could not find that template in the manifest.'); return; }
+  const entries = removeManifest.templates.filter(t => selectedRemoveIds.has(t.id));
+  if (!entries.length) { alert('Could not find the selected templates in the manifest.'); return; }
 
-  // Build the updated manifest without this entry
+  // Build the updated manifest without the removed entries
   const updatedManifest = {
     ...removeManifest,
-    templates: removeManifest.templates.filter(t => t.id !== selectedRemoveId),
+    templates: removeManifest.templates.filter(t => !selectedRemoveIds.has(t.id)),
   };
 
-  // Build the list of files to delete
+  // Build the combined list of files to delete across all removed templates
   const filesToDelete = [];
-
-  // PSD file
-  if (entry.file) filesToDelete.push(entry.file);
-
-  // Main thumbnail
-  if (entry.thumbnail) filesToDelete.push(entry.thumbnail);
-
-  // Per-artboard preview thumbnails
-  if (entry.artboardPreviews && typeof entry.artboardPreviews === 'object') {
-    Object.values(entry.artboardPreviews).forEach(p => { if (p) filesToDelete.push(p); });
-  }
-
-  // Detail JSON file (always follows this convention)
-  filesToDelete.push(`templates/details/${selectedRemoveId}.json`);
+  entries.forEach(entry => {
+    if (entry.file)      filesToDelete.push(entry.file);
+    if (entry.thumbnail) filesToDelete.push(entry.thumbnail);
+    if (entry.artboardPreviews && typeof entry.artboardPreviews === 'object') {
+      Object.values(entry.artboardPreviews).forEach(p => { if (p) filesToDelete.push(p); });
+    }
+    filesToDelete.push(`templates/details/${entry.id}.json`);
+  });
 
   // ── Render output ────────────────────────────────────────────────────
   $('removeManifestOutput').value = JSON.stringify(updatedManifest, null, 2);
