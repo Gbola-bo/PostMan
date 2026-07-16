@@ -285,3 +285,134 @@ function showReport(report) {
     notesEl.appendChild(li);
   });
 }
+// ═══════════════════════════════════════════════════════════════════════
+// REMOVE A TEMPLATE
+// ═══════════════════════════════════════════════════════════════════════
+
+const loadTemplatesBtn      = $('loadTemplatesBtn');
+const removePickerBox       = $('removePickerBox');
+const removeTemplateList    = $('removeTemplateList');
+const removeTemplateBtn     = $('removeTemplateBtn');
+const removeOutputBox       = $('removeOutputBox');
+const copyRemovedManifestBtn = $('copyRemovedManifestBtn');
+
+let removeManifest   = null;  // the parsed manifest object
+let selectedRemoveId = null;  // id of the template the user clicked
+
+// ── Parse the pasted manifest and render the picker ──────────────────────
+loadTemplatesBtn.addEventListener('click', () => {
+  const raw = $('removeManifestInput').value.trim();
+  if (!raw) { alert('Paste your manifest.json first.'); return; }
+
+  try {
+    removeManifest = JSON.parse(raw);
+  } catch (e) {
+    alert(`Could not parse the JSON: ${e.message}`);
+    return;
+  }
+
+  const templates = removeManifest.templates;
+  if (!Array.isArray(templates) || !templates.length) {
+    alert('No templates found in that manifest.');
+    return;
+  }
+
+  // Reset state
+  selectedRemoveId = null;
+  removeTemplateBtn.disabled = true;
+  removeOutputBox.classList.add('hidden');
+
+  // Render one card per template
+  removeTemplateList.innerHTML = '';
+  templates.forEach(t => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.dataset.id = t.id;
+    card.style.cssText = `
+      display:flex; align-items:center; justify-content:space-between;
+      width:100%; text-align:left; padding:12px 14px;
+      border:1.5px solid var(--border-default); border-radius:var(--radius-md);
+      background:var(--surface); cursor:pointer; gap:12px;
+    `;
+    card.innerHTML = `
+      <div>
+        <div style="font-size:14px; font-weight:600; color:var(--text-primary);">${escapeHtmlAttr(t.name || t.id)}</div>
+        <div style="font-size:11px; color:var(--text-tertiary); margin-top:2px;">
+          ID: ${escapeHtmlAttr(t.id)} &nbsp;·&nbsp;
+          ${(t.artboards || []).length} artboard(s)
+          ${t.repeatable ? ` · repeatable: ${escapeHtmlAttr(t.repeatable)}` : ''}
+        </div>
+      </div>
+      <div style="font-size:11px; color:var(--text-tertiary); white-space:nowrap;">Select →</div>
+    `;
+    card.addEventListener('click', () => {
+      // Deselect all, select this one
+      removeTemplateList.querySelectorAll('button').forEach(b => {
+        b.style.borderColor = 'var(--border-default)';
+        b.style.background  = 'var(--surface)';
+        b.querySelector('div:last-child').textContent = 'Select →';
+      });
+      card.style.borderColor = 'var(--danger-text)';
+      card.style.background  = 'var(--danger-bg)';
+      card.querySelector('div:last-child').textContent = '✓ Selected';
+      selectedRemoveId = t.id;
+      removeTemplateBtn.disabled = false;
+    });
+    removeTemplateList.appendChild(card);
+  });
+
+  removePickerBox.classList.remove('hidden');
+});
+
+// ── Remove the selected template and generate outputs ─────────────────────
+removeTemplateBtn.addEventListener('click', () => {
+  if (!selectedRemoveId || !removeManifest) return;
+
+  const entry = removeManifest.templates.find(t => t.id === selectedRemoveId);
+  if (!entry) { alert('Could not find that template in the manifest.'); return; }
+
+  // Build the updated manifest without this entry
+  const updatedManifest = {
+    ...removeManifest,
+    templates: removeManifest.templates.filter(t => t.id !== selectedRemoveId),
+  };
+
+  // Build the list of files to delete
+  const filesToDelete = [];
+
+  // PSD file
+  if (entry.file) filesToDelete.push(entry.file);
+
+  // Main thumbnail
+  if (entry.thumbnail) filesToDelete.push(entry.thumbnail);
+
+  // Per-artboard preview thumbnails
+  if (entry.artboardPreviews && typeof entry.artboardPreviews === 'object') {
+    Object.values(entry.artboardPreviews).forEach(p => { if (p) filesToDelete.push(p); });
+  }
+
+  // Detail JSON file (always follows this convention)
+  filesToDelete.push(`templates/details/${selectedRemoveId}.json`);
+
+  // ── Render output ────────────────────────────────────────────────────
+  $('removeManifestOutput').value = JSON.stringify(updatedManifest, null, 2);
+
+  const listEl = $('filesToDeleteList');
+  listEl.innerHTML = filesToDelete
+    .map(f => `<div>🗑 ${escapeHtmlAttr(f)}</div>`)
+    .join('');
+
+  removeOutputBox.classList.remove('hidden');
+  removeOutputBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// ── Copy updated manifest ─────────────────────────────────────────────────
+copyRemovedManifestBtn.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText($('removeManifestOutput').value);
+    copyRemovedManifestBtn.textContent = 'Copied!';
+    setTimeout(() => { copyRemovedManifestBtn.textContent = 'Copy to clipboard'; }, 1500);
+  } catch (e) {
+    alert('Could not copy automatically — select the text manually.');
+  }
+});
