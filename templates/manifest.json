@@ -121,6 +121,24 @@
         "last": "templates/thumbnails/twitter-DM-amber-last.png"
       },
       "vettedAt": "2026-07-16T09:48:39.876Z"
+    },
+    {
+      "id": "twitter-DM-blue",
+      "name": "twitter-DarkMode-blue",
+      "file": "templates/twitter-DM-blue.psd",
+      "thumbnail": "templates/thumbnails/twitter-DM-blue.png",
+      "artboards": [
+        "Cover",
+        "Middle",
+        "Last"
+      ],
+      "repeatable": "Middle",
+      "artboardPreviews": {
+        "cover": "templates/thumbnails/twitter-DM-blue-cover.png",
+        "middle": "templates/thumbnails/twitter-DM-blue-middle.png",
+        "last": "templates/thumbnails/twitter-DM-blue-last.png"
+      },
+      "vettedAt": "2026-07-16T09:53:33.223Z"
     }
   ]
 }
