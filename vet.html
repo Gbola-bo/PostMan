@@ -132,6 +132,59 @@
   </div>
 
   <div id="vetStatusLog" class="status-log hidden"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       REMOVE A TEMPLATE
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div style="margin-top:48px; padding-top:32px; border-top:2px solid var(--border-subtle);">
+    <h2 class="page-title" style="margin-bottom:2px;">Remove a template</h2>
+    <p class="page-subtitle">
+      Paste your current <code>manifest.json</code>, pick which template
+      to remove, and get back the updated manifest plus the exact list of
+      files to delete from the repo.
+    </p>
+
+    <label class="field-label">Your current manifest.json</label>
+    <textarea id="removeManifestInput" class="json-output" placeholder='{"templates": []}'></textarea>
+
+    <button type="button" id="loadTemplatesBtn" class="btn-secondary btn-full" style="margin-top:10px;">
+      Load templates from manifest
+    </button>
+
+    <!-- Template picker — shown after parsing -->
+    <div id="removePickerBox" class="hidden" style="margin-top:18px;">
+      <label class="field-label" style="margin-top:0;">Select the template to remove</label>
+      <div id="removeTemplateList" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;"></div>
+      <button type="button" id="removeTemplateBtn" class="btn-primary btn-full"
+        style="margin-top:16px; background:var(--danger-text); border:none;" disabled>
+        Remove selected template
+      </button>
+    </div>
+
+    <!-- Output — shown after removal -->
+    <div id="removeOutputBox" class="hidden" style="margin-top:18px;">
+
+      <p style="font-size:13px; font-weight:600; color:var(--success-text); margin-bottom:12px;">
+        ✓ Template removed. Follow the steps below.
+      </p>
+
+      <p style="font-size:13px; font-weight:600; margin-bottom:6px;">
+        1 — Replace <code>templates/manifest.json</code> with this:
+      </p>
+      <textarea id="removeManifestOutput" class="json-output" readonly></textarea>
+      <button type="button" id="copyRemovedManifestBtn" class="btn-secondary" style="margin-top:8px; margin-bottom:20px;">
+        Copy to clipboard
+      </button>
+
+      <p style="font-size:13px; font-weight:600; margin-bottom:6px;">
+        2 — Delete these files from the repo:
+      </p>
+      <div id="filesToDeleteList"
+        style="font-family:ui-monospace,monospace; font-size:12px; background:var(--surface-tertiary);
+               border-radius:var(--radius-md); padding:12px 14px; line-height:2;
+               color:var(--danger-text);"></div>
+    </div>
+  </div>
 </main>
 
 <script type="module" src="vet.js?v=7"></script>
