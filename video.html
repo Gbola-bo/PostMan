@@ -286,6 +286,45 @@
 }
 .frame-empty-hint code { font-size: 11px; color: var(--text-secondary); }
 
+/* ===== Text position control ===== */
+.text-position-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.text-position-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.text-pos-btn {
+  width: 28px; height: 28px;
+  border: none; background: transparent;
+  cursor: pointer; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary);
+  font-size: 16px; line-height: 1;
+  flex-shrink: 0;
+}
+.text-pos-btn:active { background: var(--surface); color: var(--brand-600); }
+.text-pos-slider {
+  flex: 1;
+  accent-color: var(--brand-600);
+  cursor: pointer;
+}
+.text-pos-value {
+  font-size: 10px; font-weight: 600;
+  color: var(--text-secondary);
+  width: 32px; text-align: right; flex-shrink: 0;
+}
+
 /* ===== Divider ===== */
 .controls-divider { height: 1px; background: var(--border-subtle); margin: 18px 0; }
 
@@ -462,6 +501,15 @@
         </div>
       </div>
 
+      <!-- Text position (up/down) -->
+      <div class="text-position-row">
+        <span class="text-position-label">Position</span>
+        <button type="button" class="text-pos-btn" id="textPosUp" title="Move text up">↑</button>
+        <input type="range" id="textPosSlider" class="text-pos-slider" min="0" max="100" value="85" step="1">
+        <button type="button" class="text-pos-btn" id="textPosDown" title="Move text down">↓</button>
+        <span class="text-pos-value" id="textPosValue">85%</span>
+      </div>
+
       <div class="controls-divider"></div>
 
       <!-- Quality selector -->
@@ -535,6 +583,7 @@ let textBold      = true;
 let textItalic    = false;
 let textUnderline = false;
 let textLeading   = 1.30; // line height multiplier (slider range 80–300 maps to 0.80–3.00)
+let textPositionPct = 0.85; // 0=top → 1=bottom of the text area; persists across mode/frame/ratio switches
 let textKerning   = 0;    // letter spacing in canvas px (scaled with canvas width at render time)
 let recording     = false;
 let activeAudioCtx= null;
@@ -679,9 +728,12 @@ function drawOverlay(W, H, headline, colour) {
     const pad = Math.round(W * 0.06);
     const lineH = Math.round(fs * textLeading);
     const lines = getWrappedLines(headline.trim(), W - pad * 2);
-    // Position block so its bottom sits just above the bar
     const blockH = lines.length * lineH;
-    const startY = H - barH - Math.round(H * 0.025) - blockH;
+    // textPositionPct: 0=top of scrim area, 1=bottom (just above bar)
+    const scrimTop  = H - scrimH;
+    const bottomLimit = H - barH - Math.round(H * 0.025);
+    const topLimit    = scrimTop + Math.round(H * 0.02);
+    const startY = topLimit + Math.round((bottomLimit - blockH - topLimit) * textPositionPct);
     drawTextBlock(lines, x, startY, lineH, fs);
   }
 }
@@ -732,15 +784,17 @@ function drawTemplateFramed(W, H, headline, colour) {
       const pad2   = Math.round(W * 0.06);
       const lineH  = Math.round(fs * textLeading);
       const lines  = getWrappedLines(headline.trim(), W - pad2 * 2);
-      // Position text in the lower quarter of the video placeholder
-      const textY  = py + ph - Math.round(ph * 0.35);
-      // Scrim so text is readable over any video content
-      const scrimH = Math.round(ph * 0.4);
-      const scrim  = ctx.createLinearGradient(0, py + ph - scrimH, 0, py + ph);
+      const blockH = lines.length * lineH;
+      // textPositionPct: 0=top of placeholder, 1=bottom — same variable as full bleed
+      const scrimH  = Math.round(ph * 0.5);
+      const scrim   = ctx.createLinearGradient(0, py + ph - scrimH, 0, py + ph);
       scrim.addColorStop(0, 'rgba(0,0,0,0)'); scrim.addColorStop(1, 'rgba(0,0,0,0.72)');
       ctx.fillStyle = scrim;
       ctx.fillRect(px, py + ph - scrimH, pw, scrimH);
       ctx.fillStyle = colour || '#ffffff';
+      const topLimit    = py + Math.round(ph * 0.02);
+      const bottomLimit = py + ph - Math.round(ph * 0.02);
+      const textY = topLimit + Math.round((bottomLimit - blockH - topLimit) * textPositionPct);
       drawTextBlock(lines, x, textY, lineH, fs);
     }
   } else {
@@ -991,6 +1045,17 @@ $('kerningSlider').addEventListener('input', () => {
   textKerning = parseInt($('kerningSlider').value);
   $('kerningValue').textContent = textKerning + 'px';
 });
+
+// Text position — persists across all mode/frame/ratio switches
+function applyTextPosition(val) {
+  val = Math.max(0, Math.min(100, val));
+  textPositionPct = val / 100;
+  $('textPosSlider').value = val;
+  $('textPosValue').textContent = val + '%';
+}
+$('textPosSlider').addEventListener('input', () => applyTextPosition(parseInt($('textPosSlider').value)));
+$('textPosUp').addEventListener('click',   () => applyTextPosition(Math.round(textPositionPct * 100) - 5));
+$('textPosDown').addEventListener('click', () => applyTextPosition(Math.round(textPositionPct * 100) + 5));
 
 // Inline color swatch - keep swatch background in sync with picker value
 $('textColourInput').addEventListener('input', () => {
