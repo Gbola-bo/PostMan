@@ -32,6 +32,7 @@ export class VideoEngine {
   get trimDuration() { return this.#trimOut - this.#trimIn; }
   get currentTime()  { return this.#videoEl?.currentTime ?? 0; }
   get hasVideo()     { return this.#videoEl !== null && this.#duration > 0; }
+  get blobUrl()      { return this.#blobUrl; }
   get isPlaying()    { return this.#state === 'playing'; }
   get isRecording()  { return this.#state === 'recording'; }
 
