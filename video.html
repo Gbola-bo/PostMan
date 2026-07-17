@@ -598,6 +598,7 @@
 
 <script type="module">
 import { VideoEngine, bestMimeType } from './video.js';
+import { renderMP4, WEBCODECS_AVAILABLE } from './video-render.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('previewCanvas');
@@ -664,12 +665,13 @@ loadLogo();
 // ── Support check ─────────────────────────────────────────────────────────
 function checkSupport() {
   const note = $('supportNote');
-  if (!window.MediaRecorder) { note.textContent = '⚠️ MediaRecorder not supported. Try Chrome or Safari (iOS 14.5+).'; return; }
-  if (!HTMLCanvasElement.prototype.captureStream) { note.textContent = '⚠️ canvas.captureStream() not supported — try Chrome on Android or iOS 14.5+.'; return; }
-  const hasRVFC = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
-  const mp4  = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') || MediaRecorder.isTypeSupported('video/mp4');
-  const webm = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') || MediaRecorder.isTypeSupported('video/webm');
-  note.textContent = `✓ Ready — format: ${mp4 ? 'MP4' : webm ? 'WebM' : 'default'} · sync: ${hasRVFC ? 'requestVideoFrameCallback' : 'requestAnimationFrame (fallback)'} · audio via Web Audio API.`;
+  if (WEBCODECS_AVAILABLE) {
+    note.textContent = '✓ WebCodecs available — render will produce a clean MP4 with perfect audio sync.';
+  } else {
+    note.textContent = '⚠️ WebCodecs not available (needs Chrome 94+ or iOS 16.4+). Render is disabled on this browser.';
+    $('recordBtn').disabled = true;
+    $('recordBtn').title = 'Requires Chrome 94+ or iOS 16.4+';
+  }
 }
 checkSupport();
 
@@ -942,7 +944,7 @@ $('ratioPicker').querySelectorAll('.picker-btn').forEach(btn => {
   btn.addEventListener('click', async () => {
     $('ratioPicker').querySelectorAll('.picker-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active'); activeRatio = btn.dataset.ratio;
-    applyCanvasSize();
+    applyCanvasSize(); redrawIfPaused();
     if (activeTemplate === 'framed') await updateFramePicker();
   });
 });
@@ -953,7 +955,7 @@ $('stylePicker').querySelectorAll('.picker-btn').forEach(btn => {
     btn.classList.add('active'); activeTemplate = btn.dataset.tpl;
     const isFramed = activeTemplate === 'framed';
     $('framePickerSection').classList.toggle('hidden', !isFramed);
-    if (isFramed) await updateFramePicker();
+    if (isFramed) await updateFramePicker(); else redrawIfPaused();
   });
 });
 
@@ -965,40 +967,51 @@ $('qualityPicker').querySelectorAll('.picker-btn').forEach(btn => {
 });
 
 // Size / align / bold / italic / underline toolbars
+// Redraw the canvas whenever any overlay setting changes while paused.
+// The engine loop only draws during play/record — without this, changes
+// to text/frames/colours are invisible until the user hits play.
+function redrawIfPaused() {
+  if (engine.hasVideo && !engine.isPlaying && !engine.isRecording) drawCurrentFrame();
+}
+
 $('sizePicker').querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     $('sizePicker').querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active'); textSize = btn.dataset.size;
+    btn.classList.add('active'); textSize = btn.dataset.size; redrawIfPaused();
   });
 });
 $('alignPicker').querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     $('alignPicker').querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active'); textAlign = btn.dataset.align;
+    btn.classList.add('active'); textAlign = btn.dataset.align; redrawIfPaused();
   });
 });
-$('boldBtn').addEventListener('click', () => { textBold = !textBold; $('boldBtn').classList.toggle('active', textBold); });
-$('italicBtn').addEventListener('click', () => { textItalic = !textItalic; $('italicBtn').classList.toggle('active', textItalic); });
-$('underlineBtn').addEventListener('click', () => { textUnderline = !textUnderline; $('underlineBtn').classList.toggle('active', textUnderline); });
+$('boldBtn').addEventListener('click', () => { textBold = !textBold; $('boldBtn').classList.toggle('active', textBold); redrawIfPaused(); });
+$('italicBtn').addEventListener('click', () => { textItalic = !textItalic; $('italicBtn').classList.toggle('active', textItalic); redrawIfPaused(); });
+$('underlineBtn').addEventListener('click', () => { textUnderline = !textUnderline; $('underlineBtn').classList.toggle('active', textUnderline); redrawIfPaused(); });
 
 $('leadingSlider').addEventListener('input', () => {
   textLeading = parseInt($('leadingSlider').value) / 100;
   $('leadingValue').textContent = $('leadingSlider').value + '%';
+  redrawIfPaused();
 });
 $('kerningSlider').addEventListener('input', () => {
   textKerning = parseInt($('kerningSlider').value);
   $('kerningValue').textContent = textKerning + 'px';
+  redrawIfPaused();
 });
 
 function applyTextPosition(val) {
   val = Math.max(0, Math.min(100, val));
   textPositionPct = val / 100;
   $('textPosSlider').value = val; $('textPosValue').textContent = val + '%';
+  redrawIfPaused();
 }
 $('textPosSlider').addEventListener('input', () => applyTextPosition(parseInt($('textPosSlider').value)));
 $('textPosUp').addEventListener('click',   () => applyTextPosition(Math.round(textPositionPct * 100) - 5));
 $('textPosDown').addEventListener('click', () => applyTextPosition(Math.round(textPositionPct * 100) + 5));
-$('textColourInput').addEventListener('input', () => { $('colorSwatch').style.background = $('textColourInput').value; });
+$('textColourInput').addEventListener('input', () => { $('colorSwatch').style.background = $('textColourInput').value; redrawIfPaused(); });
+$('headlineInput').addEventListener('input', redrawIfPaused);
 
 // ── File upload ───────────────────────────────────────────────────────────
 $('videoFileInput').addEventListener('change', async (e) => {
@@ -1036,21 +1049,37 @@ $('videoFileInput').addEventListener('change', async (e) => {
 // ── Record ────────────────────────────────────────────────────────────────
 $('recordBtn').addEventListener('click', async () => {
   if (!engine.hasVideo || engine.isRecording) return;
-  if (!HTMLCanvasElement.prototype.captureStream) {
-    alert('canvas.captureStream() not supported. Try Chrome on Android or Safari iOS 14.5+.'); return;
-  }
-  const mime = bestMimeType();
+  if (!WEBCODECS_AVAILABLE) { alert('WebCodecs is required for rendering. Please use Chrome 94+ or iOS 16.4+.'); return; }
+
+  // Pause preview before rendering
+  if (engine.isPlaying) engine.pause();
   applyCanvasSize();
 
   $('canvasWrap').classList.add('recording');
   $('recordBtn').disabled = true; $('recordBtn').textContent = 'Rendering...';
   $('recordProgress').classList.add('visible');
+  $('recordFill').style.width = '0%';
   updatePlayOverlay();
 
   try {
-    const blob = await engine.record(mime, BITRATES[activeQuality]);
-    const ext = mime.includes('mp4') ? 'mp4' : 'webm';
-    addOutput('video', blob, `PostMann-video.${ext}`, ext);
+    // WebCodecs render: audio extracted from source PCM, video encoded
+    // frame-by-frame with explicit timestamps. Perfect sync guaranteed.
+    const blob = await renderMP4({
+      canvas,
+      drawFrame: drawCurrentFrame,
+      seekTo:    (t) => engine.seek(t),
+      blobUrl:   engine.blobUrl,
+      trimIn:    engine.trimIn,
+      trimOut:   engine.trimOut,
+      videoBitrate: BITRATES[activeQuality],
+      fps: 30,
+      onProgress: (pct) => {
+        $('recordFill').style.width = (pct * 100).toFixed(1) + '%';
+        $('recordTimeLabel').textContent = `Frame ${Math.round(pct * engine.trimDuration * 30)} / ${Math.round(engine.trimDuration * 30)}`;
+        renderTimeline(engine.currentTime);
+      },
+    });
+    addOutput('video', blob, 'PostMann-video.mp4', 'mp4');
   } catch(err) {
     alert(`Render failed: ${err.message}`);
   } finally {
@@ -1059,6 +1088,8 @@ $('recordBtn').addEventListener('click', async () => {
     $('recordProgress').classList.remove('visible');
     $('recordFill').style.width = '0%';
     updatePlayOverlay();
+    // Restore preview at trim-in position after rendering
+    engine.seek(engine.trimIn);
   }
 });
 
@@ -1144,12 +1175,12 @@ async function updateFramePicker() {
     const imgEl = document.createElement('img'); imgEl.src = cfg.src; imgEl.alt = cfg.label; btn.appendChild(imgEl);
     const lbl = document.createElement('span'); lbl.className = 'frame-thumb-label'; lbl.textContent = cfg.label;
     btn.addEventListener('click', async () => {
-      grid.querySelectorAll('.frame-thumb-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); await loadFrame(cfg);
+      grid.querySelectorAll('.frame-thumb-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); await loadFrame(cfg); redrawIfPaused();
     });
     wrap.appendChild(btn); wrap.appendChild(lbl); grid.appendChild(wrap);
   });
   const first = grid.querySelector('.frame-thumb-btn');
-  if (first) { first.classList.add('active'); await loadFrame(frames[0]); }
+  if (first) { first.classList.add('active'); await loadFrame(frames[0]); redrawIfPaused(); }
 }
 
 // Mobile: side-by-side with sticky preview
