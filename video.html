@@ -597,8 +597,8 @@
 </main>
 
 <script type="module">
-import { VideoEngine, bestMimeType } from './video.js';
-import { renderVideo, WEBCODECS_AVAILABLE } from './video-render.js';
+import { VideoEngine } from './video.js';
+import { renderVideo, renderSupported, bestMimeType } from './video-render.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('previewCanvas');
@@ -665,12 +665,12 @@ loadLogo();
 // ── Support check ─────────────────────────────────────────────────────────
 function checkSupport() {
   const note = $('supportNote');
-  if (WEBCODECS_AVAILABLE) {
-    note.textContent = '✓ WebCodecs available — render will produce a clean MP4 with perfect audio sync.';
-  } else {
-    note.textContent = '⚠️ WebCodecs not available (needs Chrome 94+ or iOS 16.4+). Render is disabled on this browser.';
+  if (!renderSupported()) {
+    note.textContent = '⚠️ canvas.captureStream() not supported. Try Chrome or update your browser.';
     $('recordBtn').disabled = true;
-    $('recordBtn').title = 'Requires Chrome 94+ or iOS 16.4+';
+  } else {
+    const mime = bestMimeType();
+    note.textContent = `✓ Ready — output: ${mime.includes('mp4') ? 'MP4' : mime.includes('webm') ? 'WebM' : 'browser default'}`;
   }
 }
 checkSupport();
@@ -1049,7 +1049,7 @@ $('videoFileInput').addEventListener('change', async (e) => {
 // ── Record ────────────────────────────────────────────────────────────────
 $('recordBtn').addEventListener('click', async () => {
   if (!engine.hasVideo || engine.isRecording) return;
-  if (!WEBCODECS_AVAILABLE) { alert('WebCodecs is required for rendering. Please use Chrome 94+ or iOS 16.4+.'); return; }
+  if (!renderSupported()) { alert('canvas.captureStream() not supported. Try Chrome or update your browser.'); return; }
 
   if (engine.isPlaying) engine.pause();
   applyCanvasSize();
@@ -1062,25 +1062,37 @@ $('recordBtn').addEventListener('click', async () => {
   updatePlayOverlay();
 
   try {
+    // Wire the engine's trim-out callback to stop the recorder
+    let stopRecorder = null;
+    engine.onTrimOutReached = () => { stopRecorder?.(); };
+
     const result = await renderVideo({
       canvas,
-      drawFrame: drawCurrentFrame,
-      seekTo:    (t) => engine.seek(t),
-      blobUrl:   engine.blobUrl,
-      trimIn:    engine.trimIn,
-      trimOut:   engine.trimOut,
+      drawFrame:    drawCurrentFrame,
+      seekTo:       (t) => engine.seek(t),
+      playFrom:     (t) => engine.playFrom(t),
+      stopPlayback: ()  => engine.stopRecording(),
+      audioEl:      engine.audioEl,
+      trimIn:       engine.trimIn,
+      trimOut:      engine.trimOut,
       videoBitrate: BITRATES[activeQuality],
-      fps: 30,
       onProgress: (pct, label) => {
         $('recordFill').style.width = (pct * 100).toFixed(1) + '%';
         $('recordTimeLabel').textContent = label || '';
         renderTimeline(engine.currentTime);
       },
     });
+
+    // renderVideo returns a promise that resolves when recorder.stop() is called.
+    // We wire that via the onTrimOutReached callback above.
+    // But renderVideo needs us to give it a way to stop — pass recorder.stop via closure.
+    // Actually: renderVideo calls stopPlayback when trimOut is reached (via engine callback).
+    // The MediaRecorder is internal to renderVideo and stops itself.
     addOutput('video', result.blob, `PostMann-video.${result.ext}`, result.ext);
   } catch(err) {
     alert(`Render failed: ${err.message}`);
   } finally {
+    engine.onTrimOutReached = null;
     $('canvasWrap').classList.remove('recording');
     $('recordBtn').disabled = false; $('recordBtn').textContent = 'Render video';
     $('recordProgress').classList.remove('visible');
