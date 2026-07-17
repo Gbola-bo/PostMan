@@ -12,6 +12,7 @@ export class VideoEngine {
   #activeAudioCtx = null;
   #recorder = null; #chunks = [];
   #onState; #onTime; #onProgress;
+  onTrimOutReached = null; // set by renderVideo to stop MediaRecorder
 
   /** Set to a () => void function that draws the full frame to the canvas. */
   onDrawFrame = null;
@@ -33,6 +34,24 @@ export class VideoEngine {
   get currentTime()  { return this.#videoEl?.currentTime ?? 0; }
   get hasVideo()     { return this.#videoEl !== null && this.#duration > 0; }
   get blobUrl()      { return this.#blobUrl; }
+  get audioEl()      { return this.#audioEl; }   // needed by renderVideo for audio capture
+  
+  // Start real-time playback from a position — used by render flow
+  playFrom(t) {
+    if (!this.#videoEl) return;
+    this.#videoEl.currentTime = t;
+    this.#videoEl.play().catch(() => {});
+    this.#setState('recording'); // flag so the loop knows it's recording
+    this.#startRecordLoop();
+  }
+  
+  // Stop active recording (called by video-render.js when trimOut is reached)
+  stopRecording() {
+    this.#videoEl?.pause();
+    this.#audioEl?.pause();
+    this.#stopLoop();
+    this.#setState('ready');
+  }
   get isPlaying()    { return this.#state === 'playing'; }
   get isRecording()  { return this.#state === 'recording'; }
 
@@ -304,7 +323,7 @@ export class VideoEngine {
         }
         this.onDrawFrame?.(); this.#onTime(meta.mediaTime);
         this.#onProgress((meta.mediaTime - this.#trimIn) / Math.max(0.01, this.trimDuration));
-        if (meta.mediaTime >= this.#trimOut) { this.stopRecord(); return; }
+        if (meta.mediaTime >= this.#trimOut) { this.#videoEl?.pause(); this.#stopLoop(); this.#setState('ready'); this.onTrimOutReached?.(); return; }
         this.#rvfcHandle = this.#videoEl.requestVideoFrameCallback(loop);
       };
       this.#rvfcHandle = this.#videoEl.requestVideoFrameCallback(loop);
@@ -315,7 +334,7 @@ export class VideoEngine {
         if (needsSync() && Math.abs(this.#audioEl.currentTime - ct) > SYNC) this.#audioEl.currentTime = ct;
         this.onDrawFrame?.(); this.#onTime(ct);
         this.#onProgress((ct - this.#trimIn) / Math.max(0.01, this.trimDuration));
-        if (ct >= this.#trimOut) { this.stopRecord(); return; }
+        if (ct >= this.#trimOut) { this.#videoEl?.pause(); this.#stopLoop(); this.#setState('ready'); this.onTrimOutReached?.(); return; }
         this.#rafHandle = requestAnimationFrame(loop);
       };
       this.#rafHandle = requestAnimationFrame(loop);
