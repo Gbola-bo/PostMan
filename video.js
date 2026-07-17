@@ -1,0 +1,265 @@
+// PostMann Video Engine
+// Handles media pipeline: loading, sync (requestVideoFrameCallback),
+// trim in/out, and recording. The UI sets engine.onDrawFrame to composite
+// video + overlays onto the shared canvas on every frame.
+
+export class VideoEngine {
+  #canvas; #ctx;
+  #videoEl = null; #audioEl = null; #blobUrl = null;
+  #state = 'idle';
+  #duration = 0; #trimIn = 0; #trimOut = 0;
+  #rvfcHandle = null; #rafHandle = null;
+  #activeAudioCtx = null;
+  #recorder = null; #chunks = [];
+  #onState; #onTime; #onProgress;
+
+  /** Set to a () => void function that draws the full frame to the canvas. */
+  onDrawFrame = null;
+
+  constructor(canvas, { onStateChange, onTimeUpdate, onProgress } = {}) {
+    this.#canvas = canvas;
+    this.#ctx = canvas.getContext('2d');
+    this.#onState    = onStateChange || (() => {});
+    this.#onTime     = onTimeUpdate  || (() => {});
+    this.#onProgress = onProgress    || (() => {});
+  }
+
+  // ── Getters ──────────────────────────────────────────────────────────────
+  get state()        { return this.#state; }
+  get duration()     { return this.#duration; }
+  get trimIn()       { return this.#trimIn; }
+  get trimOut()      { return this.#trimOut; }
+  get trimDuration() { return this.#trimOut - this.#trimIn; }
+  get currentTime()  { return this.#videoEl?.currentTime ?? 0; }
+  get hasVideo()     { return this.#videoEl !== null && this.#duration > 0; }
+  get isPlaying()    { return this.#state === 'playing'; }
+  get isRecording()  { return this.#state === 'recording'; }
+
+  // ── Draw the current video frame cover-fit into a rect (called by UI) ────
+  drawVideoInto(ctx, x, y, w, h) {
+    if (!this.#videoEl || !this.#videoEl.videoWidth) return;
+    const vw = this.#videoEl.videoWidth, vh = this.#videoEl.videoHeight;
+    const scale = Math.max(w / vw, h / vh);
+    const sw = vw * scale, sh = vh * scale;
+    ctx.drawImage(this.#videoEl, x + (w - sw) / 2, y + (h - sh) / 2, sw, sh);
+  }
+
+  // ── Load a video file ─────────────────────────────────────────────────────
+  async load(file) {
+    this.#cleanup();
+    this.#setState('loading');
+    this.#blobUrl = URL.createObjectURL(file);
+
+    // Muted video element drives canvas drawing
+    this.#videoEl = document.createElement('video');
+    this.#videoEl.muted = true; this.#videoEl.playsInline = true; this.#videoEl.preload = 'auto';
+    this.#videoEl.src = this.#blobUrl;
+
+    // Unmuted audio element provides the audio track for recording.
+    // A fresh element per load avoids the createMediaElementSource
+    // "consumed element" bug that silently drops audio on second render.
+    this.#audioEl = document.createElement('audio');
+    this.#audioEl.src = this.#blobUrl; this.#audioEl.preload = 'auto';
+    // Unlock iOS autoplay while we're still inside the file-picker user gesture
+    this.#audioEl.play().then(() => { this.#audioEl.pause(); this.#audioEl.currentTime = 0; }).catch(() => {});
+
+    await new Promise((resolve, reject) => {
+      this.#videoEl.onloadedmetadata = resolve;
+      this.#videoEl.onerror = () => reject(new Error('Could not load the video file.'));
+    });
+
+    this.#duration = this.#videoEl.duration;
+    this.#trimIn = 0; this.#trimOut = this.#duration;
+
+    // Show first frame immediately
+    await this.#seekTo(0);
+    this.onDrawFrame?.();
+    this.#setState('ready');
+    return { duration: this.#duration };
+  }
+
+  // ── Thumbnail filmstrip for the timeline ──────────────────────────────────
+  async generateThumbnails(count = 10) {
+    if (!this.#videoEl || !this.#duration) return [];
+    const tc = document.createElement('canvas'); tc.width = 80; tc.height = 45;
+    const tctx = tc.getContext('2d');
+    const thumbs = [];
+    for (let i = 0; i < count; i++) {
+      const t = this.#duration * i / Math.max(1, count - 1);
+      await this.#seekTo(t);
+      tctx.drawImage(this.#videoEl, 0, 0, 80, 45);
+      const blob = await new Promise(r => tc.toBlob(r, 'image/jpeg', 0.5));
+      thumbs.push({ time: t, url: URL.createObjectURL(blob) });
+    }
+    await this.#seekTo(this.#trimIn); this.onDrawFrame?.();
+    return thumbs;
+  }
+
+  // ── Trim ─────────────────────────────────────────────────────────────────
+  setTrimIn(t)  { this.#trimIn  = Math.max(0, Math.min(t, this.#trimOut - 0.1, this.#duration)); }
+  setTrimOut(t) { this.#trimOut = Math.max(this.#trimIn + 0.1, Math.min(t, this.#duration)); }
+
+  // ── Seek ─────────────────────────────────────────────────────────────────
+  async seek(t) {
+    if (!this.#videoEl) return;
+    const wasPlaying = this.isPlaying;
+    if (wasPlaying) { this.#videoEl.pause(); this.#stopLoop(); }
+    await this.#seekTo(Math.max(0, Math.min(t, this.#duration)));
+    this.onDrawFrame?.(); this.#onTime(this.currentTime);
+    if (wasPlaying) this.#doPlay();
+  }
+
+  // ── Play / Pause ─────────────────────────────────────────────────────────
+  play() {
+    if (!this.#videoEl || this.isRecording) return;
+    if (this.currentTime >= this.#trimOut - 0.05) {
+      this.#seekTo(this.#trimIn).then(() => this.#doPlay());
+    } else { this.#doPlay(); }
+  }
+
+  pause() {
+    if (!this.isPlaying) return;
+    this.#videoEl.pause(); this.#stopLoop(); this.#setState('ready');
+  }
+
+  toggle() { this.isPlaying ? this.pause() : this.play(); }
+
+  // ── Record the trimmed region ─────────────────────────────────────────────
+  // Returns Promise<Blob> that resolves when the recording is complete.
+  async record(mimeType, videoBitsPerSecond) {
+    if (!this.#videoEl || this.isRecording) return;
+    if (this.isPlaying) this.pause();
+
+    this.#setState('recording');
+    this.#chunks = [];
+
+    await this.#seekTo(this.#trimIn);
+    this.#audioEl.currentTime = this.#trimIn;
+
+    const stream = this.#canvas.captureStream(30);
+
+    // Route audio through Web Audio API.
+    // connect() to destination keeps iOS AudioContext from being suspended.
+    try {
+      this.#activeAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      await this.#activeAudioCtx.resume();
+      this.#activeAudioCtx.addEventListener('statechange', () => {
+        if (this.#activeAudioCtx?.state === 'suspended') this.#activeAudioCtx.resume().catch(() => {});
+      });
+      const src = this.#activeAudioCtx.createMediaElementSource(this.#audioEl);
+      const dest = this.#activeAudioCtx.createMediaStreamDestination();
+      src.connect(dest); src.connect(this.#activeAudioCtx.destination);
+      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    } catch(e) { console.warn('Audio capture unavailable:', e.message); }
+
+    const opts = { videoBitsPerSecond };
+    if (mimeType) opts.mimeType = mimeType;
+    this.#recorder = new MediaRecorder(stream, opts);
+    this.#recorder.ondataavailable = e => { if (e.data.size > 0) this.#chunks.push(e.data); };
+    this.#recorder.start(100);
+
+    this.#videoEl.play(); this.#audioEl.play();
+    this.#startRecordLoop();
+
+    return new Promise(resolve => {
+      this.#recorder.onstop = () => {
+        const blob = new Blob(this.#chunks, { type: mimeType || 'video/webm' });
+        if (this.#activeAudioCtx) { this.#activeAudioCtx.close().catch(() => {}); this.#activeAudioCtx = null; }
+        this.#audioEl.pause(); this.#videoEl.pause();
+        this.#setState('ready'); resolve(blob);
+      };
+    });
+  }
+
+  stopRecord() { if (this.#recorder?.state !== 'inactive') this.#recorder.stop(); }
+  destroy()    { this.#cleanup(); }
+
+  // ── Private ───────────────────────────────────────────────────────────────
+  #setState(s) { this.#state = s; this.#onState(s); }
+
+  async #seekTo(t) {
+    this.#videoEl.currentTime = t;
+    await new Promise(r => this.#videoEl.addEventListener('seeked', r, { once: true }));
+  }
+
+  #doPlay() { this.#videoEl.play().catch(() => {}); this.#setState('playing'); this.#startPreviewLoop(); }
+
+  // requestVideoFrameCallback fires in sync with the video decoder —
+  // meta.mediaTime is the exact decoded timestamp, not wall-clock time.
+  // This eliminates the drift that RAF-based loops produce over long clips.
+  #useRVFC() { return 'requestVideoFrameCallback' in HTMLVideoElement.prototype; }
+
+  #startPreviewLoop() {
+    this.#stopLoop();
+    if (this.#useRVFC()) {
+      const loop = (_, meta) => {
+        if (!this.isPlaying) return;
+        this.onDrawFrame?.(); this.#onTime(meta.mediaTime);
+        if (meta.mediaTime >= this.#trimOut) { this.pause(); return; }
+        this.#rvfcHandle = this.#videoEl.requestVideoFrameCallback(loop);
+      };
+      this.#rvfcHandle = this.#videoEl.requestVideoFrameCallback(loop);
+    } else {
+      const loop = () => {
+        if (!this.isPlaying) return;
+        this.onDrawFrame?.(); this.#onTime(this.currentTime);
+        if (this.currentTime >= this.#trimOut) { this.pause(); return; }
+        this.#rafHandle = requestAnimationFrame(loop);
+      };
+      this.#rafHandle = requestAnimationFrame(loop);
+    }
+  }
+
+  #startRecordLoop() {
+    this.#stopLoop();
+    const SYNC = 0.08; // seconds — max drift before correcting audio position
+    if (this.#useRVFC()) {
+      const loop = (_, meta) => {
+        if (!this.isRecording) return;
+        // Correct any audio drift against the exact decoded video timestamp
+        if (this.#audioEl && Math.abs(this.#audioEl.currentTime - meta.mediaTime) > SYNC) {
+          this.#audioEl.currentTime = meta.mediaTime;
+        }
+        this.onDrawFrame?.(); this.#onTime(meta.mediaTime);
+        this.#onProgress((meta.mediaTime - this.#trimIn) / Math.max(0.01, this.trimDuration));
+        if (meta.mediaTime >= this.#trimOut) { this.stopRecord(); return; }
+        this.#rvfcHandle = this.#videoEl.requestVideoFrameCallback(loop);
+      };
+      this.#rvfcHandle = this.#videoEl.requestVideoFrameCallback(loop);
+    } else {
+      const loop = () => {
+        if (!this.isRecording) return;
+        const ct = this.currentTime;
+        if (this.#audioEl && Math.abs(this.#audioEl.currentTime - ct) > SYNC) this.#audioEl.currentTime = ct;
+        this.onDrawFrame?.(); this.#onTime(ct);
+        this.#onProgress((ct - this.#trimIn) / Math.max(0.01, this.trimDuration));
+        if (ct >= this.#trimOut) { this.stopRecord(); return; }
+        this.#rafHandle = requestAnimationFrame(loop);
+      };
+      this.#rafHandle = requestAnimationFrame(loop);
+    }
+  }
+
+  #stopLoop() {
+    if (this.#rvfcHandle && this.#videoEl) {
+      try { this.#videoEl.cancelVideoFrameCallback(this.#rvfcHandle); } catch(e) {}
+      this.#rvfcHandle = null;
+    }
+    if (this.#rafHandle) { cancelAnimationFrame(this.#rafHandle); this.#rafHandle = null; }
+  }
+
+  #cleanup() {
+    this.#stopLoop();
+    if (this.#recorder?.state !== 'inactive') try { this.#recorder.stop(); } catch(e) {}
+    if (this.#activeAudioCtx) { this.#activeAudioCtx.close().catch(() => {}); this.#activeAudioCtx = null; }
+    if (this.#videoEl) { this.#videoEl.pause(); this.#videoEl.src = ''; this.#videoEl = null; }
+    if (this.#audioEl) { this.#audioEl.pause(); this.#audioEl.src = ''; this.#audioEl = null; }
+    if (this.#blobUrl) { URL.revokeObjectURL(this.#blobUrl); this.#blobUrl = null; }
+    this.#recorder = null; this.#chunks = [];
+  }
+}
+
+export function bestMimeType() {
+  return ['video/mp4;codecs=avc1','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']
+    .find(t => MediaRecorder.isTypeSupported(t)) || '';
+}
