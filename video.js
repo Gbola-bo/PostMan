@@ -56,6 +56,7 @@ export class VideoEngine {
   
   // Stop active recording (called by video-render.js when trimOut is reached)
   stopRecording() {
+    if (this._recordPollId) { clearInterval(this._recordPollId); this._recordPollId = null; }
     this.#videoEl?.pause();
     this.#audioEl?.pause();
     this.#stopLoop();
@@ -149,12 +150,20 @@ export class VideoEngine {
   // ── Play / Pause ─────────────────────────────────────────────────────────
   play() {
     if (!this.#videoEl || this.isRecording) return;
-    this.#stopLoop(); // clear any stale loop before starting new one
+    this.#stopLoop();
     const atEnd = this.currentTime >= this.#trimOut - 0.05 || this.#videoEl.ended;
     if (atEnd) {
-      // Sync audio to trimIn before playing so both start together
+      // MOBILE FIX: videoEl.play() must be called SYNCHRONOUSLY inside the
+      // user gesture. If we await a seek first, iOS/Android blocks the play.
+      // Setting currentTime synchronously un-sets the 'ended' flag so play()
+      // works immediately. RVFC picks up the correct position once the internal
+      // seek settles.
+      this.#videoEl.currentTime = this.#trimIn;
       if (this.#audioEl) this.#audioEl.currentTime = this.#trimIn;
-      this.#seekTo(this.#trimIn).then(() => this.#doPlay());
+      this.#videoEl.play().catch(() => {});
+      if (this.#audioEl) this.#audioEl.play().catch(() => {});
+      this.#setState('playing');
+      this.#startPreviewLoop();
     } else {
       this.#doPlay();
     }
@@ -332,11 +341,25 @@ export class VideoEngine {
 
   #startRecordLoop() {
     this.#stopLoop();
-    // Only correct audio drift when using the Web Audio path (separate audioEl).
-    // For the directStream path, audio is embedded in the video track itself
-    // so there is no separate clock to drift.
-    const SYNC = 0.15; // seconds — only correct significant drift; small jumps cause glitches
+    const SYNC = 0.15;
     const needsSync = () => this.#audioEl && !this.#audioEl.paused && this.#activeAudioCtx;
+
+    // Redundant fallback: poll every 200ms so the recorder stops even if the
+    // RVFC/RAF callback chain dies silently (e.g. thrown error inside callback,
+    // mobile-specific frame timing issue, or background tab throttling).
+    const pollId = setInterval(() => {
+      if (!this.isRecording) { clearInterval(pollId); return; }
+      if (this.#videoEl && this.#videoEl.currentTime >= this.#trimOut) {
+        clearInterval(pollId);
+        this.#videoEl.pause();
+        this.#stopLoop();
+        this.#setState('ready');
+        this.onTrimOutReached?.();
+      }
+    }, 200);
+    // Store so stopRecording() can clear it
+    this._recordPollId = pollId;
+
     if (this.#useRVFC()) {
       const loop = (_, meta) => {
         if (!this.isRecording) return;
