@@ -39,9 +39,18 @@ export class VideoEngine {
   // Start real-time playback from a position — used by render flow
   playFrom(t) {
     if (!this.#videoEl) return;
+    // Safety net: if RVFC/RAF never fires the trimOut check (e.g. video ends
+    // naturally and the browser stops delivering frame callbacks), the 'ended'
+    // event guarantees the recorder is stopped and the render promise resolves.
+    const endedSafety = () => {
+      this.#stopLoop();
+      this.#setState('ready');
+      this.onTrimOutReached?.();
+    };
+    this.#videoEl.addEventListener('ended', endedSafety, { once: true });
     this.#videoEl.currentTime = t;
     this.#videoEl.play().catch(() => {});
-    this.#setState('recording'); // flag so the loop knows it's recording
+    this.#setState('recording');
     this.#startRecordLoop();
   }
   
@@ -140,9 +149,15 @@ export class VideoEngine {
   // ── Play / Pause ─────────────────────────────────────────────────────────
   play() {
     if (!this.#videoEl || this.isRecording) return;
-    if (this.currentTime >= this.#trimOut - 0.05) {
+    this.#stopLoop(); // clear any stale loop before starting new one
+    const atEnd = this.currentTime >= this.#trimOut - 0.05 || this.#videoEl.ended;
+    if (atEnd) {
+      // Sync audio to trimIn before playing so both start together
+      if (this.#audioEl) this.#audioEl.currentTime = this.#trimIn;
       this.#seekTo(this.#trimIn).then(() => this.#doPlay());
-    } else { this.#doPlay(); }
+    } else {
+      this.#doPlay();
+    }
   }
 
   pause() {
@@ -271,12 +286,20 @@ export class VideoEngine {
 
   #doPlay() {
     this.#videoEl.play().catch(() => {});
-    // Play the unmuted audio element for preview monitoring.
-    // Sync it to the exact video position first to avoid initial drift.
     if (this.#audioEl) {
       this.#audioEl.currentTime = this.#videoEl.currentTime;
       this.#audioEl.play().catch(() => {});
     }
+    // When the video ends naturally, pause the preview cleanly.
+    // Without this, RVFC stops firing (no new frames) but state stays 'playing',
+    // causing the glitch when the user tries to play again.
+    this.#videoEl.addEventListener('ended', () => {
+      if (this.isPlaying) {
+        this.#stopLoop();
+        this.#setState('ready');
+        this.onDrawFrame?.(); // redraw final frame without the playing-state overlay
+      }
+    }, { once: true });
     this.#setState('playing');
     this.#startPreviewLoop();
   }
