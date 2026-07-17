@@ -125,8 +125,18 @@ export async function renderVideo({
 
   // ── Start recording, then start playback ──────────────────────────────────
   recorder.start(100);
-  playFrom(trimIn); // engine plays the video at real speed from trimIn
+  playFrom(trimIn);
   if (audioMethod !== 'none' && audioEl) audioEl.play().catch(() => {});
+
+  // Absolute timeout: if NOTHING else stops the recorder (RVFC dies, ended
+  // never fires, poll never triggers), force-stop after duration + 4s.
+  // This guarantees the render promise always resolves.
+  const forceStopTimeout = setTimeout(() => {
+    if (recorder.state !== 'inactive') {
+      console.warn('renderVideo: force-stopping recorder after timeout');
+      recorder.stop();
+    }
+  }, (duration + 4) * 1000);
 
   // ── Progress reporting ────────────────────────────────────────────────────
   const startTime = Date.now();
@@ -141,6 +151,7 @@ export async function renderVideo({
   // the caller wires to recorder.stop().
   return new Promise((resolve, reject) => {
     recorder.onstop = () => {
+      clearTimeout(forceStopTimeout);
       clearInterval(progressId);
       if (audioEl) audioEl.pause();
       if (activeAudioCtx) { activeAudioCtx.close().catch(() => {}); }
@@ -148,6 +159,6 @@ export async function renderVideo({
       const ext  = (mimeType || '').includes('mp4') ? 'mp4' : 'webm';
       resolve({ blob, ext, mimeType: mimeType || 'video/webm' });
     };
-    recorder.onerror = e => { clearInterval(progressId); reject(new Error('MediaRecorder: ' + e.error)); };
+    recorder.onerror = e => { clearTimeout(forceStopTimeout); clearInterval(progressId); reject(new Error('MediaRecorder: ' + e.error)); };
   });
 }
