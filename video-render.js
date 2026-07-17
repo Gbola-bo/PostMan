@@ -46,6 +46,7 @@ export function bestMimeType() {
 export async function renderVideo({
   canvas, drawFrame, seekTo, playFrom, stopPlayback,
   audioEl, trimIn, trimOut, videoBitrate, onProgress,
+  registerStop,   // (stopFn) => void — caller uses this to wire recorder.stop to engine events
 }) {
   if (!renderSupported()) {
     throw new Error('canvas.captureStream() is not supported. Try Chrome or update your browser.');
@@ -114,6 +115,9 @@ export async function renderVideo({
   const recorder = new MediaRecorder(canvasStream, recOpts);
   const chunks   = [];
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+  // Give the caller a way to stop the recorder (wired to engine.onTrimOutReached)
+  registerStop?.(() => { if (recorder.state !== 'inactive') recorder.stop(); });
 
   // ── Seek to trim start ────────────────────────────────────────────────────
   await seekTo(trimIn);
