@@ -104,8 +104,16 @@ export class VideoEngine {
   async seek(t) {
     if (!this.#videoEl) return;
     const wasPlaying = this.isPlaying;
-    if (wasPlaying) { this.#videoEl.pause(); this.#stopLoop(); }
+    if (wasPlaying) {
+      this.#videoEl.pause();
+      if (this.#audioEl) this.#audioEl.pause();
+      this.#stopLoop();
+    }
     await this.#seekTo(Math.max(0, Math.min(t, this.#duration)));
+    // Keep audio element in sync with video position.
+    // During WebCodecs render, engine is in 'ready' state so wasPlaying is false
+    // and #doPlay() is never called — audio stays silent. Correct behaviour.
+    if (this.#audioEl) this.#audioEl.currentTime = this.#videoEl.currentTime;
     this.onDrawFrame?.(); this.#onTime(this.currentTime);
     if (wasPlaying) this.#doPlay();
   }
@@ -120,7 +128,9 @@ export class VideoEngine {
 
   pause() {
     if (!this.isPlaying) return;
-    this.#videoEl.pause(); this.#stopLoop(); this.#setState('ready');
+    this.#videoEl.pause();
+    if (this.#audioEl) this.#audioEl.pause();
+    this.#stopLoop(); this.#setState('ready');
   }
 
   toggle() { this.isPlaying ? this.pause() : this.play(); }
@@ -240,7 +250,17 @@ export class VideoEngine {
     await new Promise(r => this.#videoEl.addEventListener('seeked', r, { once: true }));
   }
 
-  #doPlay() { this.#videoEl.play().catch(() => {}); this.#setState('playing'); this.#startPreviewLoop(); }
+  #doPlay() {
+    this.#videoEl.play().catch(() => {});
+    // Play the unmuted audio element for preview monitoring.
+    // Sync it to the exact video position first to avoid initial drift.
+    if (this.#audioEl) {
+      this.#audioEl.currentTime = this.#videoEl.currentTime;
+      this.#audioEl.play().catch(() => {});
+    }
+    this.#setState('playing');
+    this.#startPreviewLoop();
+  }
 
   // requestVideoFrameCallback fires in sync with the video decoder —
   // meta.mediaTime is the exact decoded timestamp, not wall-clock time.
