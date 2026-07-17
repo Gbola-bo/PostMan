@@ -1062,10 +1062,6 @@ $('recordBtn').addEventListener('click', async () => {
   updatePlayOverlay();
 
   try {
-    // Wire the engine's trim-out callback to stop the recorder
-    let stopRecorder = null;
-    engine.onTrimOutReached = () => { stopRecorder?.(); };
-
     const result = await renderVideo({
       canvas,
       drawFrame:    drawCurrentFrame,
@@ -1076,18 +1072,16 @@ $('recordBtn').addEventListener('click', async () => {
       trimIn:       engine.trimIn,
       trimOut:      engine.trimOut,
       videoBitrate: BITRATES[activeQuality],
+      // registerStop is called by renderVideo right after creating the MediaRecorder.
+      // We wire the recorder's stop function to the engine's trim-out callback so
+      // when the engine reaches trimOut it stops the recorder → onstop fires → promise resolves.
+      registerStop: (stopFn) => { engine.onTrimOutReached = stopFn; },
       onProgress: (pct, label) => {
         $('recordFill').style.width = (pct * 100).toFixed(1) + '%';
         $('recordTimeLabel').textContent = label || '';
         renderTimeline(engine.currentTime);
       },
     });
-
-    // renderVideo returns a promise that resolves when recorder.stop() is called.
-    // We wire that via the onTrimOutReached callback above.
-    // But renderVideo needs us to give it a way to stop — pass recorder.stop via closure.
-    // Actually: renderVideo calls stopPlayback when trimOut is reached (via engine callback).
-    // The MediaRecorder is internal to renderVideo and stops itself.
     addOutput('video', result.blob, `PostMann-video.${result.ext}`, result.ext);
   } catch(err) {
     alert(`Render failed: ${err.message}`);
