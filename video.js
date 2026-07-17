@@ -360,7 +360,4 @@ export class VideoEngine {
   }
 }
 
-export function bestMimeType() {
-  return ['video/mp4;codecs=avc1','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']
-    .find(t => MediaRecorder.isTypeSupported(t)) || '';
-}
+// bestMimeType() has moved to video-render.js
