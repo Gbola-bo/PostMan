@@ -598,7 +598,7 @@
 
 <script type="module">
 import { VideoEngine, bestMimeType } from './video.js';
-import { renderMP4, WEBCODECS_AVAILABLE } from './video-render.js';
+import { renderVideo, WEBCODECS_AVAILABLE } from './video-render.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('previewCanvas');
@@ -1051,7 +1051,6 @@ $('recordBtn').addEventListener('click', async () => {
   if (!engine.hasVideo || engine.isRecording) return;
   if (!WEBCODECS_AVAILABLE) { alert('WebCodecs is required for rendering. Please use Chrome 94+ or iOS 16.4+.'); return; }
 
-  // Pause preview before rendering
   if (engine.isPlaying) engine.pause();
   applyCanvasSize();
 
@@ -1059,12 +1058,11 @@ $('recordBtn').addEventListener('click', async () => {
   $('recordBtn').disabled = true; $('recordBtn').textContent = 'Rendering...';
   $('recordProgress').classList.add('visible');
   $('recordFill').style.width = '0%';
+  $('recordTimeLabel').textContent = 'Starting...';
   updatePlayOverlay();
 
   try {
-    // WebCodecs render: audio extracted from source PCM, video encoded
-    // frame-by-frame with explicit timestamps. Perfect sync guaranteed.
-    const blob = await renderMP4({
+    const result = await renderVideo({
       canvas,
       drawFrame: drawCurrentFrame,
       seekTo:    (t) => engine.seek(t),
@@ -1073,13 +1071,13 @@ $('recordBtn').addEventListener('click', async () => {
       trimOut:   engine.trimOut,
       videoBitrate: BITRATES[activeQuality],
       fps: 30,
-      onProgress: (pct) => {
+      onProgress: (pct, label) => {
         $('recordFill').style.width = (pct * 100).toFixed(1) + '%';
-        $('recordTimeLabel').textContent = `Frame ${Math.round(pct * engine.trimDuration * 30)} / ${Math.round(engine.trimDuration * 30)}`;
+        $('recordTimeLabel').textContent = label || '';
         renderTimeline(engine.currentTime);
       },
     });
-    addOutput('video', blob, 'PostMann-video.mp4', 'mp4');
+    addOutput('video', result.blob, `PostMann-video.${result.ext}`, result.ext);
   } catch(err) {
     alert(`Render failed: ${err.message}`);
   } finally {
@@ -1088,7 +1086,6 @@ $('recordBtn').addEventListener('click', async () => {
     $('recordProgress').classList.remove('visible');
     $('recordFill').style.width = '0%';
     updatePlayOverlay();
-    // Restore preview at trim-in position after rendering
     engine.seek(engine.trimIn);
   }
 });
