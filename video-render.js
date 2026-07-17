@@ -1,249 +1,149 @@
-// PostMann Video Render Engine — Mediabunny
+// PostMann Video Render — Real-time canvas recording
 //
-// Mediabunny is the production-grade browser video library used by CapCut
-// and Descript on the web. Pure TypeScript, zero dependencies, wraps the
-// WebCodecs API with proper pipeline management.
+// A 12-second clip takes ~12 seconds to render. That is correct and expected.
+// Real-time recording is:
+//   - Faster than seek-by-seek on mobile (no 412 seeks for a 30fps clip)
+//   - Simpler and more reliable than WebCodecs pipelines
+//   - What every browser-based video tool actually uses
 //
-// Why this is better than our previous approach:
-//   - Iterates source video frames directly → timestamps come from the
-//     original bitstream, not a canvas capture clock
-//   - Reads source audio natively → no AudioContext.decodeAudioData needed,
-//     no f32-planar layout bugs, no Web Audio latency
-//   - Single unified pipeline → no two independent clocks to drift
-//   - Hardware-accelerated via WebCodecs throughout
-//
-// Reference: https://mediabunny.dev
+// Audio capture strategy (tried in order):
+//   1. audioEl.captureStream() — Chrome / Android / Firefox
+//      The cleanest approach: no Web Audio processing, no latency, no distortion.
+//      The audio element is never muted so the stream includes the audio track.
+//   2. Web Audio API — iOS Safari fallback
+//      Uses a near-silent oscillator to keep the AudioContext alive WITHOUT
+//      routing the source audio through the device speakers.
+//      Routing to speakers was what caused the distortion in previous attempts.
 
-export const WEBCODECS_AVAILABLE =
-  typeof VideoEncoder !== 'undefined' &&
-  typeof AudioEncoder !== 'undefined';
-
-const MEDIABUNNY_CDN = 'https://esm.sh/mediabunny@latest';
-
-// ── Load Mediabunny from CDN ──────────────────────────────────────────────
-async function loadMediabunny() {
-  for (const url of [MEDIABUNNY_CDN, 'https://cdn.skypack.dev/mediabunny']) {
-    try {
-      const mod = await import(url);
-      if (mod.Input && mod.Output && mod.ArrayBufferTarget) return mod;
-      if (mod.default?.Input) return mod.default;
-    } catch(e) {}
-  }
-  // Fall back to our custom WebCodecs engine if Mediabunny can't be loaded
-  return null;
+export function renderSupported() {
+  return !!(
+    typeof MediaRecorder !== 'undefined' &&
+    HTMLCanvasElement.prototype.captureStream
+  );
 }
 
-// ── Mediabunny render (preferred) ─────────────────────────────────────────
-async function renderWithMediabunny(mb, {
-  canvas, drawFrame, blobUrl, trimIn, trimOut, videoBitrate, fps, onProgress
+export function bestMimeType() {
+  return ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
+    .find(t => MediaRecorder.isTypeSupported(t)) || '';
+}
+
+/**
+ * Record the trimmed video region with the canvas overlay composited on top.
+ *
+ * @param {object}   opts
+ * @param {HTMLCanvasElement} opts.canvas
+ * @param {Function}          opts.drawFrame      () => void — draws video + overlay each frame
+ * @param {Function}          opts.seekTo         async (t) => void
+ * @param {Function}          opts.playFrom       (t) => void — starts real-time playback from t
+ * @param {Function}          opts.stopPlayback   () => void
+ * @param {HTMLAudioElement}  opts.audioEl        — the never-muted audio element
+ * @param {number}            opts.trimIn
+ * @param {number}            opts.trimOut
+ * @param {number}            opts.videoBitrate
+ * @param {Function}          opts.onProgress     (pct, label) => void
+ * @returns {Promise<{blob, ext, mimeType}>}
+ */
+export async function renderVideo({
+  canvas, drawFrame, seekTo, playFrom, stopPlayback,
+  audioEl, trimIn, trimOut, videoBitrate, onProgress,
 }) {
-  const { Input, Output, ArrayBufferTarget, BlobSource, VideoFrameSink } = mb;
-  const W = canvas.width, H = canvas.height;
+  if (!renderSupported()) {
+    throw new Error('canvas.captureStream() is not supported. Try Chrome or update your browser.');
+  }
 
-  onProgress?.(0, 'Opening source…');
-  const blob    = await fetch(blobUrl).then(r => r.blob());
-  const source  = new Input({ source: new BlobSource(blob) });
-  const videoIn = await source.getPrimaryVideoTrack();
-  const audioIn = await source.getPrimaryAudioTrack().catch(() => null);
+  const mimeType    = bestMimeType();
+  const duration    = trimOut - trimIn;
+  const canvasStream = canvas.captureStream(30);
 
-  const duration = trimOut - trimIn;
+  // ── Audio capture ────────────────────────────────────────────────────────
+  let audioMethod   = 'none';
+  let activeAudioCtx = null;
 
-  // Output target: in-memory ArrayBuffer → Blob
-  const target = new ArrayBufferTarget();
-  const output = new Output({
-    target,
-    video: { codec: 'avc', width: W, height: H, bitrate: videoBitrate },
-    audio: audioIn ? { codec: 'aac', numberOfChannels: audioIn.numberOfChannels, sampleRate: audioIn.sampleRate } : undefined,
-    fastStart: 'in-memory',
-  });
-
-  const videoOut = output.addVideoTrack();
-  const audioOut = audioIn ? output.addAudioTrack() : null;
-
-  // Transcode audio directly from source (perfect quality, no re-encoding artifacts)
-  if (audioIn && audioOut) {
-    const trimStartUs = Math.round(trimIn * 1_000_000);
-    const trimEndUs   = Math.round(trimOut * 1_000_000);
-    for await (const chunk of audioIn.readChunks({ start: trimStartUs, end: trimEndUs })) {
-      // Shift timestamps so the output starts at t=0
-      const shiftedChunk = new EncodedAudioChunk({
-        type:      chunk.type,
-        timestamp: chunk.timestamp - trimStartUs,
-        duration:  chunk.duration,
-        data:      chunk.copyTo(new Uint8Array(chunk.byteLength)),
-      });
-      audioOut.addChunk(shiftedChunk);
+  if (audioEl) {
+    // Method 1: Direct stream capture — Chrome, Android, Firefox
+    const captureStream = audioEl.captureStream || audioEl.mozCaptureStream;
+    if (captureStream) {
+      try {
+        const as = captureStream.call(audioEl);
+        const tracks = as.getAudioTracks();
+        if (tracks.length > 0) {
+          tracks.forEach(t => canvasStream.addTrack(t));
+          audioMethod = 'directCapture';
+        }
+      } catch(e) { /* fall through */ }
     }
-  }
 
-  // Iterate video frames from source, draw overlay, re-encode
-  const trimStartUs = Math.round(trimIn * 1_000_000);
-  const trimEndUs   = Math.round(trimOut * 1_000_000);
-  let frameCount = 0;
-  const totalFrames = Math.ceil(duration * fps);
+    // Method 2: Web Audio API — iOS Safari (captureStream unavailable)
+    // Route source → capture destination only.
+    // A near-silent oscillator keeps iOS from suspending the AudioContext
+    // WITHOUT playing the source audio through the speakers (which caused distortion).
+    if (audioMethod === 'none') {
+      try {
+        activeAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        await activeAudioCtx.resume();
+        activeAudioCtx.addEventListener('statechange', () => {
+          if (activeAudioCtx?.state === 'suspended') activeAudioCtx.resume().catch(() => {});
+        });
 
-  for await (const frame of videoIn.readFrames({ start: trimStartUs, end: trimEndUs })) {
-    // Draw the source frame + our overlay onto the canvas
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, W, H);
-    ctx.drawImage(frame, 0, 0, W, H);
-    drawFrame(); // draws overlay on top (text, frame template, bar etc.)
+        const src  = activeAudioCtx.createMediaElementSource(audioEl);
+        const dest = activeAudioCtx.createMediaStreamDestination();
+        src.connect(dest);
 
-    // Create a new VideoFrame from the composited canvas with the original timestamp
-    const shiftedTs = frame.timestamp - trimStartUs;
-    const outFrame = new VideoFrame(canvas, {
-      timestamp: shiftedTs,
-      duration:  frame.duration ?? Math.round(1_000_000 / fps),
-    });
+        // Keep context alive on iOS: near-silent oscillator → destination
+        // This prevents iOS suspending the context WITHOUT causing audio distortion
+        const osc = activeAudioCtx.createOscillator();
+        const sil = activeAudioCtx.createGain();
+        sil.gain.value = 0.00001;
+        osc.connect(sil); sil.connect(activeAudioCtx.destination);
+        osc.start();
 
-    videoOut.addFrame(outFrame, { keyFrame: frameCount % (fps * 2) === 0 });
-    outFrame.close();
-    frame.close();
-
-    frameCount++;
-    onProgress?.(frameCount / totalFrames, `Rendering frame ${frameCount} of ${totalFrames}…`);
-    if (frameCount % 5 === 0) await new Promise(r => setTimeout(r, 0)); // keep UI responsive
-  }
-
-  await output.finalize();
-  const { buffer } = target;
-  return { blob: new Blob([buffer], { type: 'video/mp4' }), ext: 'mp4', mimeType: 'video/mp4' };
-}
-
-// ── Custom WebCodecs fallback (when Mediabunny CDN is unavailable) ─────────
-const PROFILES = [
-  { label: 'H.264+AAC→MP4', videoCodec: 'avc1.42001f', audioCodec: 'mp4a.40.2', pkg: 'mp4-muxer@4', ext: 'mp4', mimeType: 'video/mp4', muxV: { codec: 'avc' }, muxA: (ch, sr) => ({ codec: 'aac', numberOfChannels: ch, sampleRate: sr }) },
-  { label: 'VP9+Opus→WebM',  videoCodec: 'vp09.00.10.08', audioCodec: 'opus',     pkg: 'webm-muxer@3', ext: 'webm', mimeType: 'video/webm', muxV: { codec: 'V_VP9' }, muxA: (ch, sr) => ({ codec: 'A_OPUS', numberOfChannels: ch, sampleRate: sr }) },
-  { label: 'VP8+Opus→WebM',  videoCodec: 'vp8',          audioCodec: 'opus',     pkg: 'webm-muxer@3', ext: 'webm', mimeType: 'video/webm', muxV: { codec: 'V_VP8' }, muxA: (ch, sr) => ({ codec: 'A_OPUS', numberOfChannels: ch, sampleRate: sr }) },
-];
-
-async function detectProfile(W, H, fps, bitrate) {
-  for (const p of PROFILES) {
-    try {
-      const [vs, as] = await Promise.all([
-        VideoEncoder.isConfigSupported({ codec: p.videoCodec, width: W, height: H, bitrate, framerate: fps }),
-        AudioEncoder.isConfigSupported({ codec: p.audioCodec, numberOfChannels: 2, sampleRate: 48000, bitrate: 128_000 }),
-      ]);
-      if (vs.supported && as.supported) return p;
-    } catch(e) {}
-  }
-  throw new Error('No supported WebCodecs codec found. Try Chrome 94+ or iOS 16.4+.');
-}
-
-async function loadMuxer(pkg) {
-  for (const url of [`https://esm.sh/${pkg}`, `https://cdn.skypack.dev/${pkg}`]) {
-    try {
-      const m = await import(url);
-      const M = m.Muxer ?? m.default?.Muxer;
-      const T = m.ArrayBufferTarget ?? m.default?.ArrayBufferTarget;
-      if (typeof M === 'function' && typeof T === 'function') return { Muxer: M, ArrayBufferTarget: T };
-    } catch(e) {}
-  }
-  throw new Error(`Could not load ${pkg}. Check internet connection.`);
-}
-
-async function renderWithWebCodecs({ canvas, drawFrame, seekTo, blobUrl, trimIn, trimOut, videoBitrate, fps, onProgress }) {
-  const W = canvas.width, H = canvas.height;
-  const duration = trimOut - trimIn;
-  const totalFrames = Math.round(duration * fps);
-
-  onProgress?.(0, 'Detecting codec support…');
-  const profile = await detectProfile(W, H, fps, videoBitrate);
-  onProgress?.(0, `Loading muxer (${profile.label})…`);
-  const { Muxer, ArrayBufferTarget } = await loadMuxer(profile.pkg);
-
-  onProgress?.(0, 'Decoding source audio…');
-  let audioBuffer = null, audioChs = 0, audioRate = 44100;
-  try {
-    const ab = await fetch(blobUrl).then(r => r.arrayBuffer());
-    const ac = new (window.AudioContext || window.webkitAudioContext)();
-    audioBuffer = await ac.decodeAudioData(ab);
-    audioChs = audioBuffer.numberOfChannels;
-    audioRate = audioBuffer.sampleRate;
-    await ac.close();
-  } catch(e) { console.warn('Audio decode failed:', e.message); }
-
-  const target = new ArrayBufferTarget();
-  const muxOpts = { target, video: { ...profile.muxV, width: W, height: H }, fastStart: 'in-memory' };
-  if (audioBuffer) muxOpts.audio = profile.muxA(audioChs, audioRate);
-  const muxer = new Muxer(muxOpts);
-
-  let encodeError = null;
-  const videoEncoder = new VideoEncoder({
-    output: (chunk, meta) => { if (!encodeError) muxer.addVideoChunk(chunk, meta); },
-    error:  (e) => { encodeError = new Error('VideoEncoder: ' + e.message); },
-  });
-  videoEncoder.configure({ codec: profile.videoCodec, width: W, height: H, bitrate: videoBitrate, framerate: fps, bitrateMode: 'variable', latencyMode: 'quality' });
-
-  let audioEncoder = null;
-  if (audioBuffer) {
-    audioEncoder = new AudioEncoder({
-      output: (chunk, meta) => { if (!encodeError) muxer.addAudioChunk(chunk, meta); },
-      error:  (e) => { encodeError = new Error('AudioEncoder: ' + e.message); },
-    });
-    audioEncoder.configure({ codec: profile.audioCodec, numberOfChannels: audioChs, sampleRate: audioRate, bitrate: 192_000 });
-
-    const startSample = Math.floor(trimIn * audioRate);
-    const endSample   = Math.ceil(trimOut * audioRate);
-    const total = endSample - startSample;
-    const CHUNK = Math.round(audioRate * 0.02);
-    for (let off = 0; off < total; off += CHUNK) {
-      if (encodeError) throw encodeError;
-      const len = Math.min(CHUNK, total - off);
-      const ts  = Math.round((off / audioRate) * 1_000_000);
-      // CORRECT f32-planar: all channel 0 samples, then all channel 1 samples
-      const data = new Float32Array(len * audioChs);
-      for (let ch = 0; ch < audioChs; ch++) {
-        const src = audioBuffer.getChannelData(ch);
-        for (let i = 0; i < len; i++) data[ch * len + i] = src[startSample + off + i];
+        dest.stream.getAudioTracks().forEach(t => canvasStream.addTrack(t));
+        audioMethod = 'webAudio';
+      } catch(e) {
+        console.warn('Audio capture unavailable:', e.message);
+        if (activeAudioCtx) { activeAudioCtx.close().catch(() => {}); activeAudioCtx = null; }
       }
-      const ad = new AudioData({ format: 'f32-planar', sampleRate: audioRate, numberOfChannels: audioChs, numberOfFrames: len, timestamp: ts, data });
-      audioEncoder.encode(ad);
-      ad.close();
     }
-    await audioEncoder.flush();
-    if (encodeError) throw encodeError;
   }
 
-  for (let i = 0; i < totalFrames; i++) {
-    if (encodeError) throw encodeError;
-    onProgress?.(i / totalFrames, `Rendering frame ${i + 1} of ${totalFrames}…`);
-    // Seek with 3s timeout — mobile browsers can stall on rapid sequential seeks
-    const t = trimIn + i / fps;
-    await Promise.race([seekTo(t), new Promise(r => setTimeout(r, 3000))]);
-    drawFrame();
-    const ts_us = Math.round((i / fps) * 1_000_000);
-    const dur_us = Math.round((1 / fps) * 1_000_000);
-    const frame = new VideoFrame(canvas, { timestamp: ts_us, duration: dur_us });
-    videoEncoder.encode(frame, { keyFrame: i === 0 || i % (fps * 2) === 0 });
-    frame.close();
-    if (i % 5 === 0) await new Promise(r => setTimeout(r, 0));
-  }
+  console.log(`renderVideo: audio method = ${audioMethod}, mimeType = ${mimeType || 'default'}`);
 
-  await videoEncoder.flush();
-  if (encodeError) throw encodeError;
-  muxer.finalize();
-  const { buffer } = target;
-  return { blob: new Blob([buffer], { type: profile.mimeType }), ext: profile.ext, mimeType: profile.mimeType };
-}
+  // ── MediaRecorder setup ───────────────────────────────────────────────────
+  const recOpts = { videoBitsPerSecond: videoBitrate };
+  if (mimeType) recOpts.mimeType = mimeType;
+  const recorder = new MediaRecorder(canvasStream, recOpts);
+  const chunks   = [];
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
-// ── Public API ────────────────────────────────────────────────────────────
-export async function renderVideo(opts) {
-  if (!WEBCODECS_AVAILABLE) {
-    throw new Error('WebCodecs is not supported. Use Chrome 94+ or iOS 16.4+.');
-  }
+  // ── Seek to trim start ────────────────────────────────────────────────────
+  await seekTo(trimIn);
+  if (audioEl) audioEl.currentTime = trimIn;
 
-  opts.onProgress?.(0, 'Loading render engine…');
+  // ── Start recording, then start playback ──────────────────────────────────
+  recorder.start(100);
+  playFrom(trimIn); // engine plays the video at real speed from trimIn
+  if (audioMethod !== 'none' && audioEl) audioEl.play().catch(() => {});
 
-  // Try Mediabunny first — it's the production-grade library with proper
-  // pipeline management. Fall back to our custom WebCodecs implementation
-  // if CDN is unavailable.
-  const mb = await loadMediabunny();
-  if (mb) {
-    console.log('Using Mediabunny render engine');
-    return renderWithMediabunny(mb, opts);
-  }
+  // ── Progress reporting ────────────────────────────────────────────────────
+  const startTime = Date.now();
+  const progressId = setInterval(() => {
+    const elapsed = (Date.now() - startTime) / 1000;
+    const pct     = Math.min(1, elapsed / duration);
+    onProgress?.(pct, `${elapsed.toFixed(0)}s / ${duration.toFixed(0)}s`);
+  }, 300);
 
-  console.log('Mediabunny unavailable — using custom WebCodecs engine');
-  return renderWithWebCodecs(opts);
+  // ── Wait for recording to complete ───────────────────────────────────────
+  // The engine's record loop stops at trimOut and calls stopRecording() which
+  // the caller wires to recorder.stop().
+  return new Promise((resolve, reject) => {
+    recorder.onstop = () => {
+      clearInterval(progressId);
+      if (audioEl) audioEl.pause();
+      if (activeAudioCtx) { activeAudioCtx.close().catch(() => {}); }
+      const blob = new Blob(chunks, { type: mimeType || 'video/webm' });
+      const ext  = (mimeType || '').includes('mp4') ? 'mp4' : 'webm';
+      resolve({ blob, ext, mimeType: mimeType || 'video/webm' });
+    };
+    recorder.onerror = e => { clearInterval(progressId); reject(new Error('MediaRecorder: ' + e.error)); };
+  });
 }
