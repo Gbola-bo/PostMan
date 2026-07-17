@@ -374,18 +374,22 @@
 }
 
 /* ===== Play / pause overlay on canvas ===== */
+/* A small centred circle — not a full-canvas dark rectangle */
 .play-overlay {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 14px;
-  background: rgba(0,0,0,0.32);
-  cursor: pointer; border: none;
-  transition: background 0.15s;
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: transparent;
+  border: none; cursor: pointer; padding: 0; line-height: 0;
+  transition: opacity 0.15s;
 }
-.play-overlay:active { background: rgba(0,0,0,0.5); }
-.play-overlay.playing { background: transparent; }
-.play-overlay.playing:hover { background: rgba(0,0,0,0.18); }
-.play-overlay svg { filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5)); }
+.play-overlay:active { opacity: 0.7; }
+.play-overlay.playing .pause-icon { display: flex; }
+.play-overlay.playing .play-icon  { display: none; }
+.play-overlay:not(.playing) .pause-icon { display: none; }
+.play-overlay:not(.playing) .play-icon  { display: flex; }
 
 /* ===== Timeline ===== */
 .timeline-section {
@@ -434,11 +438,23 @@
           <p>Upload a video to preview</p>
         </div>
         <div class="record-indicator" id="recordIndicator"></div>
-        <!-- Play / pause overlay — shown once a video is loaded -->
+        <!-- Play / pause overlay — centred circle, not a full-canvas rectangle -->
         <button type="button" id="playOverlay" class="play-overlay hidden" aria-label="Play / pause">
-          <svg id="playOverlayIcon" width="48" height="48" viewBox="0 0 48 48" fill="white">
-            <polygon id="playShape" points="16,10 40,24 16,38"/>
-          </svg>
+          <!-- Play icon: shown when paused -->
+          <span class="play-icon">
+            <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+              <circle cx="28" cy="28" r="28" fill="rgba(0,0,0,0.55)"/>
+              <polygon points="22,17 42,28 22,39" fill="white"/>
+            </svg>
+          </span>
+          <!-- Pause icon: shown when playing -->
+          <span class="pause-icon">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+              <circle cx="22" cy="22" r="22" fill="rgba(0,0,0,0.42)"/>
+              <rect x="13" y="13" width="6" height="18" rx="2" fill="white"/>
+              <rect x="25" y="13" width="6" height="18" rx="2" fill="white"/>
+            </svg>
+          </span>
         </button>
       </div>
       <div class="record-progress-wrap" id="recordProgress">
@@ -925,16 +941,13 @@ function tlMove(e) {
 const playOverlay = $('playOverlay');
 
 function updatePlayOverlay() {
-  const isPlaying = engine.isPlaying;
-  const isRecording = engine.isRecording;
-  if (isRecording) { playOverlay.classList.add('hidden'); return; }
-  if (engine.hasVideo) {
-    playOverlay.classList.remove('hidden');
-    playOverlay.classList.toggle('playing', isPlaying);
-    $('playShape').setAttribute('points',
-      isPlaying ? '14,10 20,10 20,38 14,38 M26,10 32,10 32,38 26,38' : '16,10 40,24 16,38'
-    );
+  if (engine.isRecording || !engine.hasVideo) {
+    playOverlay.classList.add('hidden');
+    return;
   }
+  playOverlay.classList.remove('hidden');
+  // CSS .playing class switches which icon is visible (see .play-overlay CSS)
+  playOverlay.classList.toggle('playing', engine.isPlaying);
 }
 
 playOverlay.addEventListener('click', () => engine.toggle());
