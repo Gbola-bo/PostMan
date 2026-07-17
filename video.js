@@ -134,23 +134,70 @@ export class VideoEngine {
     this.#chunks = [];
 
     await this.#seekTo(this.#trimIn);
-    this.#audioEl.currentTime = this.#trimIn;
 
     const stream = this.#canvas.captureStream(30);
 
-    // Route audio through Web Audio API.
-    // connect() to destination keeps iOS AudioContext from being suspended.
-    try {
-      this.#activeAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      await this.#activeAudioCtx.resume();
-      this.#activeAudioCtx.addEventListener('statechange', () => {
-        if (this.#activeAudioCtx?.state === 'suspended') this.#activeAudioCtx.resume().catch(() => {});
-      });
-      const src = this.#activeAudioCtx.createMediaElementSource(this.#audioEl);
-      const dest = this.#activeAudioCtx.createMediaStreamDestination();
-      src.connect(dest); src.connect(this.#activeAudioCtx.destination);
-      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
-    } catch(e) { console.warn('Audio capture unavailable:', e.message); }
+    // ── Audio capture strategy ────────────────────────────────────────────
+    // Chrome / Android: captureStream() on the video element gives us the
+    // decoded audio track directly — no Web Audio processing, no resampling,
+    // no latency offset. This is the cleanest path and produces the best sync.
+    //
+    // iOS / Safari: captureStream() on media elements isn't supported.
+    // We fall back to Web Audio API, but route through a near-silent gain
+    // node instead of connecting directly to audioCtx.destination.
+    // The original approach (connect to destination = play through speakers)
+    // caused distortion because iOS changes its audio session routing when
+    // something plays through the speaker while the AudioContext is running.
+    // The silent gain node keeps the context alive without triggering that.
+
+    let audioMethod = 'none';
+
+    // Try direct stream capture first (Chrome / Android / Firefox)
+    if (this.#videoEl.captureStream) {
+      try {
+        const vs = this.#videoEl.captureStream();
+        const audioTracks = vs.getAudioTracks();
+        if (audioTracks.length > 0) {
+          audioTracks.forEach(t => stream.addTrack(t));
+          audioMethod = 'directStream';
+        }
+      } catch(e) { /* fall through to Web Audio */ }
+    }
+
+    // iOS fallback: Web Audio with silent keepalive
+    if (audioMethod === 'none' && this.#audioEl) {
+      try {
+        this.#activeAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        await this.#activeAudioCtx.resume();
+
+        const src  = this.#activeAudioCtx.createMediaElementSource(this.#audioEl);
+        const dest = this.#activeAudioCtx.createMediaStreamDestination();
+        src.connect(dest);
+
+        // Keep context alive with a near-silent oscillator — prevents iOS from
+        // suspending the context WITHOUT routing the source audio through speakers
+        // (which was the cause of the distortion).
+        const keepAlive = this.#activeAudioCtx.createOscillator();
+        const silence   = this.#activeAudioCtx.createGain();
+        silence.gain.value = 0.0001;
+        keepAlive.connect(silence);
+        silence.connect(this.#activeAudioCtx.destination);
+        keepAlive.start();
+
+        this.#activeAudioCtx.addEventListener('statechange', () => {
+          if (this.#activeAudioCtx?.state === 'suspended') {
+            this.#activeAudioCtx.resume().catch(() => {});
+          }
+        });
+
+        dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+        audioMethod = 'webAudio';
+      } catch(e) {
+        console.warn('Audio capture unavailable:', e.message);
+      }
+    }
+
+    console.log(`Recording: audio method = ${audioMethod}`);
 
     const opts = { videoBitsPerSecond };
     if (mimeType) opts.mimeType = mimeType;
@@ -158,15 +205,25 @@ export class VideoEngine {
     this.#recorder.ondataavailable = e => { if (e.data.size > 0) this.#chunks.push(e.data); };
     this.#recorder.start(100);
 
-    this.#videoEl.play(); this.#audioEl.play();
+    this.#videoEl.play();
+    // For Web Audio path, also play the separate audio element
+    if (audioMethod === 'webAudio' && this.#audioEl) {
+      this.#audioEl.currentTime = this.#trimIn;
+      this.#audioEl.play();
+    }
     this.#startRecordLoop();
 
     return new Promise(resolve => {
       this.#recorder.onstop = () => {
         const blob = new Blob(this.#chunks, { type: mimeType || 'video/webm' });
-        if (this.#activeAudioCtx) { this.#activeAudioCtx.close().catch(() => {}); this.#activeAudioCtx = null; }
-        this.#audioEl.pause(); this.#videoEl.pause();
-        this.#setState('ready'); resolve(blob);
+        if (this.#activeAudioCtx) {
+          this.#activeAudioCtx.close().catch(() => {});
+          this.#activeAudioCtx = null;
+        }
+        if (this.#audioEl) this.#audioEl.pause();
+        this.#videoEl.pause();
+        this.#setState('ready');
+        resolve(blob);
       };
     });
   }
@@ -212,12 +269,16 @@ export class VideoEngine {
 
   #startRecordLoop() {
     this.#stopLoop();
-    const SYNC = 0.08; // seconds — max drift before correcting audio position
+    // Only correct audio drift when using the Web Audio path (separate audioEl).
+    // For the directStream path, audio is embedded in the video track itself
+    // so there is no separate clock to drift.
+    const SYNC = 0.15; // seconds — only correct significant drift; small jumps cause glitches
+    const needsSync = () => this.#audioEl && !this.#audioEl.paused && this.#activeAudioCtx;
     if (this.#useRVFC()) {
       const loop = (_, meta) => {
         if (!this.isRecording) return;
-        // Correct any audio drift against the exact decoded video timestamp
-        if (this.#audioEl && Math.abs(this.#audioEl.currentTime - meta.mediaTime) > SYNC) {
+        // Correct audio drift only in Web Audio path; direct stream doesn't need it
+        if (needsSync() && Math.abs(this.#audioEl.currentTime - meta.mediaTime) > SYNC) {
           this.#audioEl.currentTime = meta.mediaTime;
         }
         this.onDrawFrame?.(); this.#onTime(meta.mediaTime);
@@ -230,7 +291,7 @@ export class VideoEngine {
       const loop = () => {
         if (!this.isRecording) return;
         const ct = this.currentTime;
-        if (this.#audioEl && Math.abs(this.#audioEl.currentTime - ct) > SYNC) this.#audioEl.currentTime = ct;
+        if (needsSync() && Math.abs(this.#audioEl.currentTime - ct) > SYNC) this.#audioEl.currentTime = ct;
         this.onDrawFrame?.(); this.#onTime(ct);
         this.#onProgress((ct - this.#trimIn) / Math.max(0.01, this.trimDuration));
         if (ct >= this.#trimOut) { this.stopRecord(); return; }
