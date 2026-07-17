@@ -36,12 +36,30 @@ export async function renderMP4({ canvas, drawFrame, seekTo, blobUrl, trimIn, tr
   const totalFrames = Math.round(duration * fps);
 
   // ── Dynamically import mp4-muxer ────────────────────────────────────────
-  // We import it only when render is triggered so it doesn't affect page load.
+  // esm.sh converts any npm package to a proper browser ESM module.
+  // We try it first, then fall back to jsdelivr, then give a clear error.
   let Muxer, ArrayBufferTarget;
-  try {
-    ({ Muxer, ArrayBufferTarget } = await import('https://unpkg.com/mp4-muxer@4/build/mp4-muxer.js'));
-  } catch(e) {
-    throw new Error('Could not load mp4-muxer. Check your internet connection and try again.');
+  const cdnUrls = [
+    'https://esm.sh/mp4-muxer@4',
+    'https://cdn.jsdelivr.net/npm/mp4-muxer@4/build/mp4-muxer.js',
+  ];
+  let importError = null;
+  for (const url of cdnUrls) {
+    try {
+      const mod = await import(url);
+      // Handle both named exports and default-wrapped exports (UMD compat)
+      Muxer           = mod.Muxer           ?? mod.default?.Muxer;
+      ArrayBufferTarget = mod.ArrayBufferTarget ?? mod.default?.ArrayBufferTarget;
+      if (typeof Muxer === 'function' && typeof ArrayBufferTarget === 'function') break;
+    } catch(e) { importError = e; }
+  }
+  if (typeof Muxer !== 'function' || typeof ArrayBufferTarget !== 'function') {
+    throw new Error(
+      `Could not load mp4-muxer from CDN. ${importError?.message ?? 'Named exports missing.'}
+` +
+      'Alternatively, download mp4-muxer.js and host it as assets/mp4-muxer.js — ' +
+      'then change the import URL in video-render.js to ./assets/mp4-muxer.js'
+    );
   }
 
   // ── Decode source audio (the highest-quality path: PCM direct from file) ─
