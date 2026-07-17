@@ -389,23 +389,24 @@
 
 /* ===== Timeline ===== */
 .timeline-section {
-  margin-top: 14px;
-  padding: 12px 0 0;
-  border-top: 1px solid var(--border-subtle);
+  margin-top: 8px;
 }
 .timeline-header {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 6px; gap: 8px;
+  margin-bottom: 4px;
 }
-.tl-time { font-size: 11px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-.tl-trim-info { display: flex; gap: 10px; font-size: 10px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+/* On narrow preview column, hide the trim info row to save space */
+.tl-time { font-size: 10px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.tl-trim-info {
+  display: flex; justify-content: space-between;
+  font-size: 9px; color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums; margin-top: 3px;
+}
 .timeline-canvas-wrap {
-  position: relative; border-radius: 8px; overflow: hidden;
-  cursor: crosshair; height: 58px;
-  background: #1a1a1a;
+  position: relative; border-radius: 6px; overflow: hidden;
+  cursor: crosshair; height: 48px; background: #1a1a1a;
 }
-#timelineCanvas { display: block; width: 100%; height: 58px; }
-.timeline-hint { font-size: 10px; color: var(--text-tertiary); text-align: center; margin-top: 5px; }
+#timelineCanvas { display: block; width: 100%; height: 48px; }
 
 </style>
 </head>
@@ -447,6 +448,22 @@
         </div>
         <div class="record-progress-track">
           <div class="record-progress-fill" id="recordFill"></div>
+        </div>
+      </div>
+
+      <!-- Timeline lives here — directly under the canvas in the same column -->
+      <div id="timelineSection" class="timeline-section hidden">
+        <div class="timeline-header">
+          <span class="tl-time" id="tlCurrentTime">0:00</span>
+          <span class="tl-time" id="tlTotalTime">0:00</span>
+        </div>
+        <div class="timeline-canvas-wrap">
+          <canvas id="timelineCanvas"></canvas>
+        </div>
+        <div class="tl-trim-info">
+          <span id="tlTrimIn">▶ 0:00</span>
+          <span id="tlTrimDur">⏱ 0:00</span>
+          <span id="tlTrimOut">■ 0:00</span>
         </div>
       </div>
     </div>
@@ -570,22 +587,6 @@
     </div>
   </div>
 
-  <!-- Timeline — shown once a video is loaded -->
-  <div id="timelineSection" class="timeline-section hidden">
-    <div class="timeline-header">
-      <span class="tl-time" id="tlCurrentTime">0:00</span>
-      <div class="tl-trim-info">
-        <span id="tlTrimIn">▶ 0:00</span>
-        <span id="tlTrimOut">■ 0:00</span>
-        <span id="tlTrimDur">⏱ 0:00</span>
-      </div>
-      <span class="tl-time" id="tlTotalTime">0:00</span>
-    </div>
-    <div class="timeline-canvas-wrap">
-      <canvas id="timelineCanvas"></canvas>
-    </div>
-    <p class="timeline-hint">Drag ◀ ▶ handles to trim · tap to seek</p>
-  </div>
 
   <!-- Outputs -->
   <div id="outputsSection" class="hidden" style="margin-top:24px;">
