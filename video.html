@@ -372,46 +372,6 @@
   border-radius: var(--radius-md);
   padding: 10px 12px; margin-top: 14px; line-height: 1.5;
 }
-
-/* ===== Play / pause overlay on canvas ===== */
-/* A small centred circle — not a full-canvas dark rectangle */
-.play-overlay {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 56px; height: 56px;
-  border-radius: 50%;
-  background: transparent;
-  border: none; cursor: pointer; padding: 0; line-height: 0;
-  transition: opacity 0.15s;
-}
-.play-overlay:active { opacity: 0.7; }
-.play-overlay.playing .pause-icon { display: flex; }
-.play-overlay.playing .play-icon  { display: none; }
-.play-overlay:not(.playing) .pause-icon { display: none; }
-.play-overlay:not(.playing) .play-icon  { display: flex; }
-
-/* ===== Timeline ===== */
-.timeline-section {
-  margin-top: 8px;
-}
-.timeline-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 4px;
-}
-/* On narrow preview column, hide the trim info row to save space */
-.tl-time { font-size: 10px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-.tl-trim-info {
-  display: flex; justify-content: space-between;
-  font-size: 9px; color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums; margin-top: 3px;
-}
-.timeline-canvas-wrap {
-  position: relative; border-radius: 6px; overflow: hidden;
-  cursor: crosshair; height: 48px; background: #1a1a1a;
-}
-#timelineCanvas { display: block; width: 100%; height: 48px; }
-
 </style>
 </head>
 <body>
@@ -438,24 +398,6 @@
           <p>Upload a video to preview</p>
         </div>
         <div class="record-indicator" id="recordIndicator"></div>
-        <!-- Play / pause overlay — centred circle, not a full-canvas rectangle -->
-        <button type="button" id="playOverlay" class="play-overlay hidden" aria-label="Play / pause">
-          <!-- Play icon: shown when paused -->
-          <span class="play-icon">
-            <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-              <circle cx="28" cy="28" r="28" fill="rgba(0,0,0,0.55)"/>
-              <polygon points="22,17 42,28 22,39" fill="white"/>
-            </svg>
-          </span>
-          <!-- Pause icon: shown when playing -->
-          <span class="pause-icon">
-            <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
-              <circle cx="22" cy="22" r="22" fill="rgba(0,0,0,0.42)"/>
-              <rect x="13" y="13" width="6" height="18" rx="2" fill="white"/>
-              <rect x="25" y="13" width="6" height="18" rx="2" fill="white"/>
-            </svg>
-          </span>
-        </button>
       </div>
       <div class="record-progress-wrap" id="recordProgress">
         <div class="record-progress-label">
@@ -464,22 +406,6 @@
         </div>
         <div class="record-progress-track">
           <div class="record-progress-fill" id="recordFill"></div>
-        </div>
-      </div>
-
-      <!-- Timeline lives here — directly under the canvas in the same column -->
-      <div id="timelineSection" class="timeline-section hidden">
-        <div class="timeline-header">
-          <span class="tl-time" id="tlCurrentTime">0:00</span>
-          <span class="tl-time" id="tlTotalTime">0:00</span>
-        </div>
-        <div class="timeline-canvas-wrap">
-          <canvas id="timelineCanvas"></canvas>
-        </div>
-        <div class="tl-trim-info">
-          <span id="tlTrimIn">▶ 0:00</span>
-          <span id="tlTrimDur">⏱ 0:00</span>
-          <span id="tlTrimOut">■ 0:00</span>
         </div>
       </div>
     </div>
@@ -603,7 +529,6 @@
     </div>
   </div>
 
-
   <!-- Outputs -->
   <div id="outputsSection" class="hidden" style="margin-top:24px;">
     <p style="font-size:15px; font-weight:700; margin-bottom:14px;">Your exports</p>
@@ -612,62 +537,64 @@
 
 </main>
 
-<script type="module">
-import { VideoEngine } from './video.js';
-import { renderVideo, renderSupported, bestMimeType } from './video-render.js';
+<script>
+// ============================================================
+// PostMann Video
+// native canvas + MediaRecorder, no framework, no build step
+// ============================================================
 
 const $ = id => document.getElementById(id);
 const canvas = $('previewCanvas');
-const ctx    = canvas.getContext('2d');
+const ctx = canvas.getContext('2d');
 
-// ── Canvas size config ────────────────────────────────────────────────────
-const BASE_SHORT    = { reg: 540, mid: 720, high: 1080 };
+// ---- Canvas size config ----
+// BASE_SHORT: the short side of the canvas per quality level.
+// Ratios are always width:height in portrait/story (short:long).
+const BASE_SHORT = { reg: 540, mid: 720, high: 1080 };
 const RATIO_CONFIGS = {
-  story:    { aspectW: 9, aspectH: 16, cssRatio: '9 / 16' },
-  portrait: { aspectW: 4, aspectH: 5,  cssRatio: '4 / 5'  },
-  square:   { aspectW: 1, aspectH: 1,  cssRatio: '1 / 1'  },
+  story:    { aspectW: 9,  aspectH: 16, cssRatio: '9 / 16' },
+  portrait: { aspectW: 4,  aspectH: 5,  cssRatio: '4 / 5'  },
+  square:   { aspectW: 1,  aspectH: 1,  cssRatio: '1 / 1'  },
 };
 const BITRATES = { reg: 1_500_000, mid: 2_500_000, high: 5_000_000 };
 
 function getCanvasDims() {
   const short = BASE_SHORT[activeQuality];
   const { aspectW, aspectH } = RATIO_CONFIGS[activeRatio];
-  return { w: short, h: Math.round(short * aspectH / aspectW) };
+  // For portrait/story, short side is the width.
+  // For square, both sides are equal to short.
+  const w = short;
+  const h = Math.round(short * aspectH / aspectW);
+  return { w, h };
 }
 
-// ── UI state (unchanged from before) ─────────────────────────────────────
+// ---- State ----
+let videoEl       = null;
+let audioEl       = null;
+let blobUrl       = null;  // stored so we can create a fresh audioEl per render pass
 let logoImg       = null;
+let animFrame     = null;
 let activeRatio   = 'story';
-let activeTemplate = 'fullbleed';
+let activeTemplate     = 'fullbleed';
 let activeQuality = 'reg';
 let textSize      = 'small';
 let textAlign     = 'center';
 let textBold      = true;
 let textItalic    = false;
 let textUnderline = false;
-let textLeading   = 1.30;
-let textPositionPct = 0.85;
-let textKerning   = 0;
+let textLeading   = 1.30; // line height multiplier (slider range 80–300 maps to 0.80–3.00)
+let textPositionPct = 0.85; // 0=top → 1=bottom of the text area; persists across mode/frame/ratio switches
+let textKerning   = 0;    // letter spacing in canvas px (scaled with canvas width at render time)
+let recording     = false;
+let activeAudioCtx= null;
 
-// ── Engine ────────────────────────────────────────────────────────────────
-const engine = new VideoEngine(canvas, {
-  onStateChange: (state) => {
-    updatePlayOverlay();
-    if (state === 'ready' || state === 'playing') drawCurrentFrame();
-  },
-  onTimeUpdate: (t) => {
-    renderTimeline(t);
-  },
-  onProgress: (pct) => {
-    $('recordFill').style.width = (pct * 100).toFixed(1) + '%';
-    renderTimeline(engine.currentTime);
-  },
-});
+// Initialise canvas to default dims
+(function initCanvas() {
+  const { w, h } = getCanvasDims();
+  canvas.width = w; canvas.height = h;
+})();
 
-// Tell the engine what to draw on each frame
-engine.onDrawFrame = drawCurrentFrame;
-
-// ── Logo ──────────────────────────────────────────────────────────────────
+// ---- Logo ----
 function loadLogo() {
   return new Promise(resolve => {
     const img = new Image();
@@ -678,31 +605,41 @@ function loadLogo() {
 }
 loadLogo();
 
-// ── Support check ─────────────────────────────────────────────────────────
+// ---- Support check ----
 function checkSupport() {
   const note = $('supportNote');
-  if (!renderSupported()) {
-    note.textContent = '⚠️ canvas.captureStream() not supported. Try Chrome or update your browser.';
-    $('recordBtn').disabled = true;
-  } else {
-    const mime = bestMimeType();
-    note.textContent = `✓ Ready — output: ${mime.includes('mp4') ? 'MP4' : mime.includes('webm') ? 'WebM' : 'browser default'}`;
+  if (!window.MediaRecorder) {
+    note.textContent = '⚠️ MediaRecorder not supported. Try Chrome, Edge, or Safari (iOS 14.5+).';
+    return;
   }
+  if (!HTMLCanvasElement.prototype.captureStream) {
+    note.textContent = '⚠️ canvas.captureStream() not supported — try Chrome on Android or iOS 14.5+.';
+    return;
+  }
+  const mp4 = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') || MediaRecorder.isTypeSupported('video/mp4');
+  const webm = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') || MediaRecorder.isTypeSupported('video/webm');
+  note.textContent = `✓ Ready — output: ${mp4 ? 'MP4' : webm ? 'WebM' : 'default'}. Audio captured via Web Audio API.`;
 }
 checkSupport();
 
-// ── Canvas size ───────────────────────────────────────────────────────────
+function bestMimeType() {
+  return ['video/mp4;codecs=avc1','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']
+    .find(t => MediaRecorder.isTypeSupported(t)) || '';
+}
+
+// ---- Canvas size helper ----
 function applyCanvasSize() {
   const { w, h } = getCanvasDims();
   canvas.width = w; canvas.height = h;
   $('canvasWrap').style.aspectRatio = RATIO_CONFIGS[activeRatio].cssRatio;
-  if (engine.hasVideo) drawCurrentFrame(); else drawBlankFrame(w, h);
+  drawCurrentFrame();
 }
 
-// ── Text helpers ──────────────────────────────────────────────────────────
+// ---- Text helpers ----
 function getTextFontSize() {
   const { w } = getCanvasDims();
-  return Math.round(w * { small: 0.055, medium: 0.075, large: 0.10 }[textSize]);
+  const base = { small: 0.055, medium: 0.075, large: 0.10 }[textSize];
+  return Math.round(w * base);
 }
 function getTextX(W) {
   const pad = Math.round(W * 0.06);
@@ -710,6 +647,7 @@ function getTextX(W) {
 }
 function ctxTextAlign() { return textAlign; }
 
+// ---- getWrappedLines: split on \n then word-wrap each paragraph ----
 function getWrappedLines(text, maxWidth) {
   const allLines = [];
   for (const para of text.split('\n')) {
@@ -727,6 +665,7 @@ function getWrappedLines(text, maxWidth) {
   return allLines;
 }
 
+// drawTextBlock: renders lines top-down from startY, draws underline if active
 function drawTextBlock(lines, x, startY, lineHeight, fs) {
   lines.forEach((l, i) => {
     const ly = startY + i * lineHeight;
@@ -736,7 +675,8 @@ function drawTextBlock(lines, x, startY, lineHeight, fs) {
       let lx = x;
       if (ctx.textAlign === 'center') lx = x - tw / 2;
       else if (ctx.textAlign === 'right') lx = x - tw;
-      ctx.save(); ctx.strokeStyle = ctx.fillStyle;
+      ctx.save();
+      ctx.strokeStyle = ctx.fillStyle;
       ctx.lineWidth = Math.max(1, Math.round(fs * 0.055));
       ctx.beginPath(); ctx.moveTo(lx, ly + Math.round(fs * 0.88)); ctx.lineTo(lx + tw, ly + Math.round(fs * 0.88)); ctx.stroke();
       ctx.restore();
@@ -744,11 +684,27 @@ function drawTextBlock(lines, x, startY, lineHeight, fs) {
   });
 }
 
-// ── Drawing ───────────────────────────────────────────────────────────────
-function getHeadline()  { return $('headlineInput').value; }
-function getTextColour(){ return $('textColourInput').value; }
+// ---- object-fit:cover for canvas ----
+// Crops video to fill the target rect without distortion (like CSS object-fit:cover).
+function drawVideoCover(el, dx, dy, dw, dh) {
+  const vw = el.videoWidth  || 1;
+  const vh = el.videoHeight || 1;
+  const videoAR  = vw / vh;
+  const targetAR = dw / dh;
+  let sx, sy, sw, sh;
+  if (videoAR > targetAR) {
+    sh = vh; sw = Math.round(vh * targetAR);
+    sx = Math.round((vw - sw) / 2); sy = 0;
+  } else {
+    sw = vw; sh = Math.round(vw / targetAR);
+    sx = 0; sy = Math.round((vh - sh) / 2);
+  }
+  ctx.drawImage(el, sx, sy, sw, sh, dx, dy, dw, dh);
+}
 
+// ---- Template drawing ----
 function drawOverlay(W, H, headline, colour) {
+  // Bottom bar — #ED0D6E, slim (2.5% of height)
   const barH = Math.round(H * 0.025);
   ctx.fillStyle = '#ED0D6E';
   ctx.fillRect(0, H - barH, W, barH);
@@ -756,77 +712,251 @@ function drawOverlay(W, H, headline, colour) {
     const scrimH = H * 0.52;
     const scrim = ctx.createLinearGradient(0, H - scrimH, 0, H);
     scrim.addColorStop(0, 'rgba(0,0,0,0)'); scrim.addColorStop(1, 'rgba(0,0,0,0.78)');
-    ctx.fillStyle = scrim; ctx.fillRect(0, H - scrimH, W, scrimH);
+    ctx.fillStyle = scrim;
+    ctx.fillRect(0, H - scrimH, W, scrimH);
     const fs = getTextFontSize();
-    ctx.font = `${textItalic ? 'italic ' : ''}${textBold ? '700' : '400'} ${fs}px "Funnel Display", sans-serif`;
+    const style = textItalic ? 'italic ' : '';
+    const weight = textBold ? '700' : '400';
+    ctx.font = `${style}${weight} ${fs}px "Funnel Display", sans-serif`;
+    // Scale kerning proportionally with canvas width so it looks the same
+    // regardless of quality setting (540 / 720 / 1080px canvas).
     ctx.letterSpacing = Math.round(textKerning * W / 390) + 'px';
     ctx.fillStyle = colour || '#ffffff';
-    ctx.textAlign = ctxTextAlign(); ctx.textBaseline = 'top';
-    const x = getTextX(W); const pad = Math.round(W * 0.06);
+    ctx.textAlign = ctxTextAlign();
+    ctx.textBaseline = 'top';
+    const x = getTextX(W);
+    const pad = Math.round(W * 0.06);
     const lineH = Math.round(fs * textLeading);
     const lines = getWrappedLines(headline.trim(), W - pad * 2);
     const blockH = lines.length * lineH;
-    const topLimit = H - scrimH + Math.round(H * 0.02);
-    const botLimit = H - barH - Math.round(H * 0.025);
-    const startY = topLimit + Math.round((botLimit - blockH - topLimit) * textPositionPct);
+    // textPositionPct: 0=top of scrim area, 1=bottom (just above bar)
+    const scrimTop  = H - scrimH;
+    const bottomLimit = H - barH - Math.round(H * 0.025);
+    const topLimit    = scrimTop + Math.round(H * 0.02);
+    const startY = topLimit + Math.round((bottomLimit - blockH - topLimit) * textPositionPct);
     drawTextBlock(lines, x, startY, lineH, fs);
   }
 }
 
 function drawTemplateFullBleed(W, H, headline, colour) {
-  if (!engine.hasVideo) return drawBlankFrame(W, H);
-  engine.drawVideoInto(ctx, 0, 0, W, H);
+  if (!videoEl) return drawBlankFrame(W, H);
+  drawVideoCover(videoEl, 0, 0, W, H); // cover-fit: no distortion
   drawOverlay(W, H, headline, colour);
 }
 
 function drawTemplateFramed(W, H, headline, colour) {
-  if (!engine.hasVideo) return drawBlankFrame(W, H);
+  if (!videoEl) return drawBlankFrame(W, H);
   ctx.clearRect(0, 0, W, H);
+
   if (activeFrameImg && activeFramePlaceholder) {
-    const sx = W / activeFrameImg.naturalWidth, sy = H / activeFrameImg.naturalHeight;
-    const p  = activeFramePlaceholder;
-    const px = Math.round(p.x * sx), py = Math.round(p.y * sy);
-    const pw = Math.round(p.width * sx), ph = Math.round(p.height * sy);
-    const pr = Math.round(activeFrameRadius * Math.min(sx, sy));
-    ctx.save(); ctx.beginPath(); ctx.roundRect(px, py, pw, ph, pr); ctx.clip();
-    engine.drawVideoInto(ctx, px, py, pw, ph);
+    // Scale the detected placeholder bounds from the PNG's native resolution
+    // to the current canvas resolution.
+    const sx = W / activeFrameImg.naturalWidth;
+    const sy = H / activeFrameImg.naturalHeight;
+    const p   = activeFramePlaceholder;
+    const px  = Math.round(p.x * sx),  py  = Math.round(p.y * sy);
+    const pw  = Math.round(p.width * sx), ph = Math.round(p.height * sy);
+    // Scale the 15px corner radius too so it looks right at any canvas size
+    const pr  = Math.round(activeFrameRadius * Math.min(sx, sy));
+
+    // 1. Draw the video clipped to the placeholder's rounded rectangle
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(px, py, pw, ph, pr);
+    ctx.clip();
+    drawVideoCover(videoEl, px, py, pw, ph);
     ctx.restore();
+
+    // 2. Overlay the frame PNG (its transparent hole lets the video show through)
     ctx.drawImage(activeFrameImg, 0, 0, W, H);
+
+    // 3. Text overlay drawn on top of everything
     if (headline && headline.trim()) {
-      const fs = getTextFontSize();
-      ctx.font = `${textItalic ? 'italic ' : ''}${textBold ? '700' : '400'} ${fs}px "Funnel Display", sans-serif`;
+      const fs     = getTextFontSize();
+      const style  = textItalic ? 'italic ' : '';
+      const weight = textBold ? '700' : '400';
+      ctx.font          = `${style}${weight} ${fs}px "Funnel Display", sans-serif`;
       ctx.letterSpacing = Math.round(textKerning * W / 390) + 'px';
-      ctx.fillStyle = colour || '#ffffff';
-      ctx.textAlign = ctxTextAlign(); ctx.textBaseline = 'top';
-      const x = getTextX(W); const pad2 = Math.round(W * 0.06);
-      const lineH = Math.round(fs * textLeading);
-      const lines = getWrappedLines(headline.trim(), W - pad2 * 2);
+      ctx.fillStyle     = colour || '#ffffff';
+      ctx.textAlign     = ctxTextAlign();
+      ctx.textBaseline  = 'top';
+      const x      = getTextX(W);
+      const pad2   = Math.round(W * 0.06);
+      const lineH  = Math.round(fs * textLeading);
+      const lines  = getWrappedLines(headline.trim(), W - pad2 * 2);
       const blockH = lines.length * lineH;
-      const scrimH = Math.round(ph * 0.5);
-      const scrim = ctx.createLinearGradient(0, py + ph - scrimH, 0, py + ph);
+      // textPositionPct: 0=top of placeholder, 1=bottom — same variable as full bleed
+      const scrimH  = Math.round(ph * 0.5);
+      const scrim   = ctx.createLinearGradient(0, py + ph - scrimH, 0, py + ph);
       scrim.addColorStop(0, 'rgba(0,0,0,0)'); scrim.addColorStop(1, 'rgba(0,0,0,0.72)');
-      ctx.fillStyle = scrim; ctx.fillRect(px, py + ph - scrimH, pw, scrimH);
+      ctx.fillStyle = scrim;
+      ctx.fillRect(px, py + ph - scrimH, pw, scrimH);
       ctx.fillStyle = colour || '#ffffff';
-      const topLimit = py + Math.round(ph * 0.02);
-      const botLimit = py + ph - Math.round(ph * 0.02);
-      const textY = topLimit + Math.round((botLimit - blockH - topLimit) * textPositionPct);
+      const topLimit    = py + Math.round(ph * 0.02);
+      const bottomLimit = py + ph - Math.round(ph * 0.02);
+      const textY = topLimit + Math.round((bottomLimit - blockH - topLimit) * textPositionPct);
       drawTextBlock(lines, x, textY, lineH, fs);
     }
   } else {
-    engine.drawVideoInto(ctx, 0, 0, W, H);
-    ctx.fillStyle = 'rgba(0,0,0,0.42)'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = 'white'; ctx.font = `600 ${Math.round(W * 0.05)}px "Funnel Display", sans-serif`;
+    // No frame loaded yet — show video full-bleed with a "choose frame" prompt
+    drawVideoCover(videoEl, 0, 0, W, H);
+    ctx.fillStyle = 'rgba(0,0,0,0.42)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'white';
+    ctx.font = `600 ${Math.round(W * 0.05)}px "Funnel Display", sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('Select a frame above', W / 2, H / 2);
   }
 }
 
-function drawBlankFrame(W, H) {
-  ctx.fillStyle = '#f1efe8'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#9b9a95'; ctx.font = `${Math.round(W * 0.055)}px sans-serif`;
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('Upload a video to preview', W / 2, H / 2);
+// ── Frame config ────────────────────────────────────────────────────────
+// Add entries here as you create new frame PNGs. The src path is relative
+// to the page. The label appears below the thumbnail in the picker.
+// Each ratio has its own array so the picker updates when you change ratio.
+// ── Frame system ────────────────────────────────────────────────────────
+// Frames are registered in assets/video-frames/frames.json — not here.
+// Add frames by editing that JSON file and uploading your PNG.
+// See frames.json for step-by-step instructions.
+
+let framesConfig    = { story: [], portrait: [], square: [] };
+let activeFrameImg  = null;
+let activeFramePlaceholder = null;
+let activeFrameRadius = 15;   // corner radius from frames.json entry
+
+// Load frames.json once on startup. Fails gracefully if file doesn't exist yet.
+async function loadFramesConfig() {
+  try {
+    const res = await fetch('assets/video-frames/frames.json?t=' + Date.now(), { cache: 'no-store' });
+    if (res.ok) framesConfig = await res.json();
+  } catch(e) {
+    console.info('frames.json not found or unreadable — no frames registered yet.');
+  }
 }
+
+// Detect video placeholder bounds by scanning the PNG for transparent pixels
+// (alpha < 50). This works when the frame is exported with the Video Placeholder
+// layer HIDDEN so that area is fully transparent in the PNG.
+async function detectPlaceholder(img) {
+  const oc = document.createElement('canvas');
+  oc.width = img.naturalWidth; oc.height = img.naturalHeight;
+  const octx = oc.getContext('2d');
+  octx.drawImage(img, 0, 0);
+
+  let data;
+  try {
+    data = octx.getImageData(0, 0, oc.width, oc.height).data;
+  } catch(e) {
+    console.warn('detectPlaceholder: getImageData blocked — using padded-centre fallback');
+    data = null;
+  }
+
+  let minX = oc.width, minY = oc.height, maxX = 0, maxY = 0, found = false;
+  if (data) {
+    for (let y = 0; y < oc.height; y++) {
+      for (let x = 0; x < oc.width; x++) {
+        if (data[(y * oc.width + x) * 4 + 3] < 50) {
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y;
+          found = true;
+        }
+      }
+    }
+  }
+
+  if (found) return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+
+  // Nothing detected: use 5% padding as a fallback and warn the user.
+  const pad = Math.round(Math.min(oc.width, oc.height) * 0.05);
+  console.warn(
+    'detectPlaceholder: no transparent pixels found.\n' +
+    'Make sure you exported the PNG with the Video Placeholder layer HIDDEN.'
+  );
+  return { x: pad, y: pad, width: oc.width - pad * 2, height: oc.height - pad * 2 };
+}
+
+// Load a single frame PNG, detect its placeholder, cache everything.
+async function loadFrame(cfg) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = async () => {
+      activeFrameImg    = img;
+      activeFrameRadius = cfg.radius != null ? cfg.radius : 15;
+      activeFramePlaceholder = await detectPlaceholder(img);
+      resolve();
+    };
+    img.onerror = () => {
+      activeFrameImg = null; activeFramePlaceholder = null;
+      console.warn('Could not load frame:', cfg.src);
+      resolve();
+    };
+    img.src = cfg.src;
+  });
+}
+
+// Rebuild the frame picker for the current ratio using the loaded framesConfig.
+async function updateFramePicker() {
+  const grid  = $('framePickerGrid');
+  const empty = $('framePickerEmpty');
+  grid.innerHTML = '';
+
+  const frames = framesConfig[activeRatio] || [];
+  if (!frames.length) {
+    grid.classList.add('hidden');
+    empty.classList.remove('hidden');
+    activeFrameImg = null; activeFramePlaceholder = null;
+    return;
+  }
+  grid.classList.remove('hidden');
+  empty.classList.add('hidden');
+
+  frames.forEach(cfg => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'frame-thumb-btn';
+    btn.title = cfg.label;
+
+    const imgEl = document.createElement('img');
+    imgEl.src = cfg.src;
+    imgEl.alt = cfg.label;
+    btn.appendChild(imgEl);
+
+    const lbl = document.createElement('span');
+    lbl.className = 'frame-thumb-label';
+    lbl.textContent = cfg.label;
+
+    btn.addEventListener('click', async () => {
+      grid.querySelectorAll('.frame-thumb-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      await loadFrame(cfg);
+    });
+
+    wrap.appendChild(btn);
+    wrap.appendChild(lbl);
+    grid.appendChild(wrap);
+  });
+
+  // Auto-select the first frame
+  const firstBtn = grid.querySelector('.frame-thumb-btn');
+  if (firstBtn) {
+    firstBtn.classList.add('active');
+    await loadFrame(frames[0]);
+  }
+}
+
+function drawBlankFrame(W, H) {
+  const cW = W || canvas.width, cH = H || canvas.height;
+  ctx.fillStyle = '#f1efe8'; ctx.fillRect(0, 0, cW, cH);
+  ctx.fillStyle = '#9b9a95'; ctx.font = `${Math.round(cW * 0.055)}px sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('Upload a video to preview', cW / 2, cH / 2);
+}
+
+function getHeadline() { return $('headlineInput').value; }
+function getTextColour() { return $('textColourInput').value; }
 
 function drawCurrentFrame() {
   const { w, h } = getCanvasDims();
@@ -834,130 +964,20 @@ function drawCurrentFrame() {
   else drawTemplateFullBleed(w, h, getHeadline(), getTextColour());
 }
 
-// ── Timeline ──────────────────────────────────────────────────────────────
-const tlCanvas = $('timelineCanvas');
-const tlCtx    = tlCanvas.getContext('2d');
-let timelineThumbs = [];
-let tlDragging = null;
-
-function fmtTime(s) {
-  const m = Math.floor(s / 60);
-  return `${m}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
+function startPreviewLoop() {
+  cancelAnimationFrame(animFrame);
+  function loop() { drawCurrentFrame(); animFrame = requestAnimationFrame(loop); }
+  loop();
 }
 
-function renderTimeline(currentTime) {
-  if (!engine.hasVideo) return;
-  const rect = tlCanvas.parentElement.getBoundingClientRect();
-  const dpr  = window.devicePixelRatio || 1;
-  const W    = Math.round(rect.width * dpr);
-  const H    = Math.round(58 * dpr);
-  if (tlCanvas.width !== W)  tlCanvas.width  = W;
-  if (tlCanvas.height !== H) tlCanvas.height = H;
-
-  const { duration, trimIn, trimOut } = engine;
-  if (!duration) return;
-  const t2x = t => (t / duration) * W;
-  const HANDLE = Math.round(10 * dpr);
-
-  tlCtx.clearRect(0, 0, W, H);
-
-  // Thumbnail filmstrip
-  if (timelineThumbs.length > 1) {
-    const tw = W / timelineThumbs.length;
-    timelineThumbs.forEach((t, i) => {
-      if (t.img.complete && t.img.naturalWidth) tlCtx.drawImage(t.img, i * tw, 0, tw, H);
-    });
-  } else { tlCtx.fillStyle = '#222'; tlCtx.fillRect(0, 0, W, H); }
-
-  // Darken outside trim
-  tlCtx.fillStyle = 'rgba(0,0,0,0.62)';
-  tlCtx.fillRect(0, 0, t2x(trimIn), H);
-  tlCtx.fillRect(t2x(trimOut), 0, W - t2x(trimOut), H);
-
-  // Trim region border
-  const inX = t2x(trimIn), outX = t2x(trimOut);
-  tlCtx.strokeStyle = '#FF644F'; tlCtx.lineWidth = 2 * dpr;
-  tlCtx.strokeRect(inX + 1, 1, outX - inX - 2, H - 2);
-
-  // Handles
-  tlCtx.fillStyle = '#FF644F';
-  tlCtx.fillRect(inX, 0, HANDLE, H);
-  tlCtx.fillRect(outX - HANDLE, 0, HANDLE, H);
-  tlCtx.fillStyle = 'white'; tlCtx.font = `bold ${11 * dpr}px sans-serif`;
-  tlCtx.textAlign = 'center'; tlCtx.textBaseline = 'middle';
-  tlCtx.fillText('◀', inX + HANDLE / 2, H / 2);
-  tlCtx.fillText('▶', outX - HANDLE / 2, H / 2);
-
-  // Playhead
-  const phX = t2x(Math.max(trimIn, Math.min(currentTime, trimOut)));
-  tlCtx.strokeStyle = 'white'; tlCtx.lineWidth = 2 * dpr;
-  tlCtx.beginPath(); tlCtx.moveTo(phX, 0); tlCtx.lineTo(phX, H); tlCtx.stroke();
-  tlCtx.fillStyle = 'white';
-  tlCtx.beginPath(); tlCtx.arc(phX, 7 * dpr, 5 * dpr, 0, Math.PI * 2); tlCtx.fill();
-
-  // Labels
-  $('tlCurrentTime').textContent = fmtTime(currentTime);
-  $('tlTotalTime').textContent   = fmtTime(duration);
-  $('tlTrimIn').textContent      = `▶ ${fmtTime(trimIn)}`;
-  $('tlTrimOut').textContent     = `■ ${fmtTime(trimOut)}`;
-  $('tlTrimDur').textContent     = `⏱ ${fmtTime(trimOut - trimIn)}`;
-}
-
-// Timeline interaction
-function tlEventPos(e) {
-  const rect = tlCanvas.getBoundingClientRect();
-  const cx = e.touches ? e.touches[0].clientX : e.clientX;
-  return { x: Math.max(0, Math.min(cx - rect.left, rect.width)), w: rect.width };
-}
-function tlXtoTime(x, w) { return (x / w) * engine.duration; }
-
-tlCanvas.addEventListener('mousedown', tlDown);
-tlCanvas.addEventListener('touchstart', e => { e.preventDefault(); tlDown(e); }, { passive: false });
-window.addEventListener('mousemove', tlMove);
-window.addEventListener('touchmove', e => { if (tlDragging) { e.preventDefault(); tlMove(e); } }, { passive: false });
-window.addEventListener('mouseup',   () => { tlDragging = null; });
-window.addEventListener('touchend',  () => { tlDragging = null; });
-
-function tlDown(e) {
-  const { x, w } = tlEventPos(e);
-  const { duration, trimIn, trimOut } = engine;
-  const inX = (trimIn  / duration) * w;
-  const outX = (trimOut / duration) * w;
-  const HIT = 20;
-  if (Math.abs(x - inX) < HIT)       { tlDragging = 'in'; }
-  else if (Math.abs(x - outX) < HIT) { tlDragging = 'out'; }
-  else { tlDragging = 'seek'; engine.seek(tlXtoTime(x, w)); }
-}
-function tlMove(e) {
-  if (!tlDragging || tlDragging === 'seek') return;
-  const { x, w } = tlEventPos(e);
-  const t = tlXtoTime(x, w);
-  if (tlDragging === 'in')  { engine.setTrimIn(t);  engine.seek(t); }
-  else                        { engine.setTrimOut(t); engine.seek(t); }
-  renderTimeline(engine.currentTime);
-}
-
-// ── Play overlay ──────────────────────────────────────────────────────────
-const playOverlay = $('playOverlay');
-
-function updatePlayOverlay() {
-  if (engine.isRecording || !engine.hasVideo) {
-    playOverlay.classList.add('hidden');
-    return;
-  }
-  playOverlay.classList.remove('hidden');
-  // CSS .playing class switches which icon is visible (see .play-overlay CSS)
-  playOverlay.classList.toggle('playing', engine.isPlaying);
-}
-
-playOverlay.addEventListener('click', () => engine.toggle());
-
-// ── Picker handlers ───────────────────────────────────────────────────────
+// ---- Picker handlers ----
 $('ratioPicker').querySelectorAll('.picker-btn').forEach(btn => {
   btn.addEventListener('click', async () => {
     $('ratioPicker').querySelectorAll('.picker-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active'); activeRatio = btn.dataset.ratio;
-    applyCanvasSize(); redrawIfPaused();
+    btn.classList.add('active');
+    activeRatio = btn.dataset.ratio;
+    applyCanvasSize();
+    // If Framed is active, reload the picker for the new ratio
     if (activeTemplate === 'framed') await updateFramePicker();
   });
 });
@@ -965,170 +985,233 @@ $('ratioPicker').querySelectorAll('.picker-btn').forEach(btn => {
 $('stylePicker').querySelectorAll('.picker-btn').forEach(btn => {
   btn.addEventListener('click', async () => {
     $('stylePicker').querySelectorAll('.picker-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active'); activeTemplate = btn.dataset.tpl;
+    btn.classList.add('active');
+    activeTemplate = btn.dataset.tpl;
     const isFramed = activeTemplate === 'framed';
     $('framePickerSection').classList.toggle('hidden', !isFramed);
-    if (isFramed) await updateFramePicker(); else redrawIfPaused();
+    if (isFramed) await updateFramePicker();
   });
 });
 
 $('qualityPicker').querySelectorAll('.picker-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     $('qualityPicker').querySelectorAll('.picker-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active'); activeQuality = btn.dataset.quality; applyCanvasSize();
+    btn.classList.add('active');
+    activeQuality = btn.dataset.quality;
+    applyCanvasSize();
   });
 });
 
-// Size / align / bold / italic / underline toolbars
-// Redraw the canvas whenever any overlay setting changes while paused.
-// The engine loop only draws during play/record — without this, changes
-// to text/frames/colours are invisible until the user hits play.
-function redrawIfPaused() {
-  if (engine.hasVideo && !engine.isPlaying && !engine.isRecording) drawCurrentFrame();
-}
-
+// Size toolbar
 $('sizePicker').querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     $('sizePicker').querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active'); textSize = btn.dataset.size; redrawIfPaused();
+    btn.classList.add('active');
+    textSize = btn.dataset.size;
   });
 });
+
+// Align toolbar
 $('alignPicker').querySelectorAll('.tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     $('alignPicker').querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active'); textAlign = btn.dataset.align; redrawIfPaused();
+    btn.classList.add('active');
+    textAlign = btn.dataset.align;
   });
 });
-$('boldBtn').addEventListener('click', () => { textBold = !textBold; $('boldBtn').classList.toggle('active', textBold); redrawIfPaused(); });
-$('italicBtn').addEventListener('click', () => { textItalic = !textItalic; $('italicBtn').classList.toggle('active', textItalic); redrawIfPaused(); });
-$('underlineBtn').addEventListener('click', () => { textUnderline = !textUnderline; $('underlineBtn').classList.toggle('active', textUnderline); redrawIfPaused(); });
 
+// Bold / italic / underline toggles
+$('boldBtn').addEventListener('click', () => {
+  textBold = !textBold;
+  $('boldBtn').classList.toggle('active', textBold);
+});
+$('italicBtn').addEventListener('click', () => {
+  textItalic = !textItalic;
+  $('italicBtn').classList.toggle('active', textItalic);
+});
+$('underlineBtn').addEventListener('click', () => {
+  textUnderline = !textUnderline;
+  $('underlineBtn').classList.toggle('active', textUnderline);
+});
+
+// Leading slider (80–300 → 0.80–3.00 multiplier)
 $('leadingSlider').addEventListener('input', () => {
   textLeading = parseInt($('leadingSlider').value) / 100;
   $('leadingValue').textContent = $('leadingSlider').value + '%';
-  redrawIfPaused();
 });
+
+// Kerning slider (-10 to 40 canvas px at 390px design width)
 $('kerningSlider').addEventListener('input', () => {
   textKerning = parseInt($('kerningSlider').value);
   $('kerningValue').textContent = textKerning + 'px';
-  redrawIfPaused();
 });
 
+// Text position — persists across all mode/frame/ratio switches
 function applyTextPosition(val) {
   val = Math.max(0, Math.min(100, val));
   textPositionPct = val / 100;
-  $('textPosSlider').value = val; $('textPosValue').textContent = val + '%';
-  redrawIfPaused();
+  $('textPosSlider').value = val;
+  $('textPosValue').textContent = val + '%';
 }
 $('textPosSlider').addEventListener('input', () => applyTextPosition(parseInt($('textPosSlider').value)));
 $('textPosUp').addEventListener('click',   () => applyTextPosition(Math.round(textPositionPct * 100) - 5));
 $('textPosDown').addEventListener('click', () => applyTextPosition(Math.round(textPositionPct * 100) + 5));
-$('textColourInput').addEventListener('input', () => { $('colorSwatch').style.background = $('textColourInput').value; redrawIfPaused(); });
-$('headlineInput').addEventListener('input', redrawIfPaused);
 
-// ── File upload ───────────────────────────────────────────────────────────
-$('videoFileInput').addEventListener('change', async (e) => {
+// Inline color swatch - keep swatch background in sync with picker value
+$('textColourInput').addEventListener('input', () => {
+  $('colorSwatch').style.background = $('textColourInput').value;
+});
+
+// ---- File upload ----
+$('videoFileInput').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  const nameEl = $('videoFileName');
-  nameEl.textContent = file.name; nameEl.classList.add('chosen');
+  const name = $('videoFileName');
+  name.textContent = file.name;
+  name.classList.add('chosen');
   $('canvasPlaceholder').style.display = 'none';
   applyCanvasSize();
 
-  try {
-    await engine.load(file);
+  // Store blob URL so we can create a fresh audioEl on EACH recording pass.
+  // createMediaElementSource() permanently consumes an element - reusing it
+  // across multiple AudioContexts silently drops audio after the first render.
+  if (blobUrl) URL.revokeObjectURL(blobUrl);
+  blobUrl = URL.createObjectURL(file);
 
-    // Reveal play overlay and timeline
-    updatePlayOverlay();
-    $('timelineSection').classList.remove('hidden');
-    renderTimeline(0);
-    $('recordBtn').disabled = false;
-    $('coverBtn').disabled  = false;
+  if (videoEl) { videoEl.pause(); videoEl.src = ''; }
+  videoEl = document.createElement('video');
+  videoEl.muted = true; videoEl.loop = true; videoEl.playsInline = true;
+  videoEl.preload = 'auto'; videoEl.crossOrigin = 'anonymous';
+  videoEl.src = blobUrl;
+  videoEl.play().catch(() => {});
+  // audioEl is now created fresh at the start of each recording pass, not here
 
-    // Generate thumbnail filmstrip in background
-    engine.generateThumbnails(10).then(thumbs => {
-      timelineThumbs = thumbs.map(t => {
-        const img = new Image();
-        img.onload = () => renderTimeline(engine.currentTime);
-        img.src = t.url;
-        return { time: t.time, img };
-      });
-    });
-  } catch(err) {
-    alert(`Could not load video: ${err.message}`);
-  }
+  startPreviewLoop();
+  $('recordBtn').disabled = false;
+  $('coverBtn').disabled = false;
 });
 
-// ── Record ────────────────────────────────────────────────────────────────
+// ---- Recording ----
 $('recordBtn').addEventListener('click', async () => {
-  if (!engine.hasVideo || engine.isRecording) return;
-  if (!renderSupported()) { alert('canvas.captureStream() not supported. Try Chrome or update your browser.'); return; }
+  if (recording || !videoEl || !blobUrl) return;
 
-  if (engine.isPlaying) engine.pause();
+  const mimeType = bestMimeType();
+  if (!HTMLCanvasElement.prototype.captureStream) {
+    alert('canvas.captureStream() not supported. Try Chrome on Android or Safari on iOS 14.5+.');
+    return;
+  }
+
+  // Create a FRESH audioEl for this pass - createMediaElementSource() permanently
+  // consumes an element, so the same element cannot be used with a new AudioContext
+  // on a second render. A fresh element from the same blobUrl has never been consumed.
+  if (audioEl) { try { audioEl.pause(); } catch(_) {} audioEl.src = ''; }
+  audioEl = document.createElement('audio');
+  audioEl.src = blobUrl;
+  audioEl.preload = 'auto';
+  // Unlock iOS autoplay SYNCHRONOUSLY before any await - must be in the user gesture
+  const audioUnlock = audioEl.play()
+    .then(() => { audioEl.pause(); audioEl.currentTime = 0; })
+    .catch(() => {});
+
+  // Apply the correct canvas size before recording
   applyCanvasSize();
 
+  recording = true;
   $('canvasWrap').classList.add('recording');
-  $('recordBtn').disabled = true; $('recordBtn').textContent = 'Rendering...';
+  $('recordBtn').disabled = true;
+  $('recordBtn').textContent = 'Rendering...';
   $('recordProgress').classList.add('visible');
-  $('recordFill').style.width = '0%';
-  $('recordTimeLabel').textContent = 'Starting...';
-  updatePlayOverlay();
+
+  // Wait for the iOS unlock to resolve before setting up Web Audio
+  await audioUnlock;
+
+  const canvasStream = canvas.captureStream(30);
 
   try {
-    const result = await renderVideo({
-      canvas,
-      drawFrame:    drawCurrentFrame,
-      seekTo:       (t) => engine.seek(t),
-      playFrom:     (t) => engine.playFrom(t),
-      stopPlayback: ()  => engine.stopRecording(),
-      audioEl:      engine.audioEl,
-      trimIn:       engine.trimIn,
-      trimOut:      engine.trimOut,
-      videoBitrate: BITRATES[activeQuality],
-      // registerStop is called by renderVideo right after creating the MediaRecorder.
-      // We wire the recorder's stop function to the engine's trim-out callback so
-      // when the engine reaches trimOut it stops the recorder → onstop fires → promise resolves.
-      registerStop: (stopFn) => { engine.onTrimOutReached = stopFn; },
-      onProgress: (pct, label) => {
-        $('recordFill').style.width = (pct * 100).toFixed(1) + '%';
-        $('recordTimeLabel').textContent = label || '';
-        renderTimeline(engine.currentTime);
-      },
+    activeAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    await activeAudioCtx.resume();
+    activeAudioCtx.addEventListener('statechange', () => {
+      if (activeAudioCtx && activeAudioCtx.state === 'suspended') activeAudioCtx.resume().catch(() => {});
     });
-    addOutput('video', result.blob, `PostMann-video.${result.ext}`, result.ext);
-  } catch(err) {
-    alert(`Render failed: ${err.message}`);
-  } finally {
-    engine.onTrimOutReached = null;
+    const source = activeAudioCtx.createMediaElementSource(audioEl);
+    const dest = activeAudioCtx.createMediaStreamDestination();
+    source.connect(dest);
+    source.connect(activeAudioCtx.destination);
+    dest.stream.getAudioTracks().forEach(t => canvasStream.addTrack(t));
+  } catch (e) { console.warn('Audio capture unavailable:', e.message); }
+
+  const recorderOpts = { videoBitsPerSecond: BITRATES[activeQuality] };
+  if (mimeType) recorderOpts.mimeType = mimeType;
+  const recorder = new MediaRecorder(canvasStream, recorderOpts);
+  const chunks = [];
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+  const totalDuration = videoEl.duration || 30;
+  videoEl.loop = false; videoEl.muted = true; videoEl.currentTime = 0;
+  audioEl.currentTime = 0;
+
+  recorder.start(100);
+  videoEl.play().catch(() => {});
+  audioEl.play().catch(() => {});
+
+  const progressInterval = setInterval(() => {
+    const pct = Math.min(100, (videoEl.currentTime / totalDuration) * 100);
+    $('recordFill').style.width = pct + '%';
+    $('recordTimeLabel').textContent = `${Math.round(videoEl.currentTime)}s / ${Math.round(totalDuration)}s`;
+  }, 250);
+
+  recorder.onstop = () => {
+    clearInterval(progressInterval);
+    recording = false;
     $('canvasWrap').classList.remove('recording');
-    $('recordBtn').disabled = false; $('recordBtn').textContent = 'Render video';
+    $('recordBtn').disabled = false;
+    $('recordBtn').textContent = 'Render video';
     $('recordProgress').classList.remove('visible');
     $('recordFill').style.width = '0%';
-    updatePlayOverlay();
-    engine.seek(engine.trimIn);
-  }
+    if (audioEl) { audioEl.pause(); audioEl.currentTime = 0; }
+    videoEl.loop = true; videoEl.muted = true;
+    if (activeAudioCtx) { activeAudioCtx.close().catch(() => {}); activeAudioCtx = null; }
+    videoEl.play().catch(() => {});
+    const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+    const blob = new Blob(chunks, { type: mimeType || 'video/webm' });
+    addOutput('video', blob, `PostMann-video.${ext}`, ext);
+  };
+
+  videoEl.onended = () => { if (audioEl) audioEl.pause(); if (recorder.state !== 'inactive') recorder.stop(); };
+  setTimeout(() => { if (recorder.state !== 'inactive') recorder.stop(); }, (totalDuration + 2) * 1000);
 });
 
-// ── Cover PNG ─────────────────────────────────────────────────────────────
-$('coverBtn').addEventListener('click', async () => {
-  if (!engine.hasVideo) return;
+// ---- Cover PNG ----
+$('coverBtn').addEventListener('click', () => {
+  cancelAnimationFrame(animFrame);
   applyCanvasSize();
-  await engine.seek(engine.trimIn);
-  drawCurrentFrame();
-  canvas.toBlob(blob => { if (blob) addOutput('image', blob, 'PostMann-cover.png', 'png'); }, 'image/png');
+  if (videoEl) {
+    videoEl.pause(); videoEl.currentTime = 0;
+    const onSeeked = () => {
+      videoEl.removeEventListener('seeked', onSeeked);
+      drawCurrentFrame(); exportCanvasPNG();
+      videoEl.play().catch(() => {}); startPreviewLoop();
+    };
+    videoEl.addEventListener('seeked', onSeeked);
+  } else { drawCurrentFrame(); exportCanvasPNG(); startPreviewLoop(); }
 });
 
-// ── Output cards ──────────────────────────────────────────────────────────
+function exportCanvasPNG() {
+  canvas.toBlob(blob => { if (blob) addOutput('image', blob, 'PostMann-cover.png', 'png'); }, 'image/png');
+}
+
+// ---- Output cards ----
 function addOutput(type, blob, filename, ext) {
   const url = URL.createObjectURL(blob);
   const { w, h } = getCanvasDims();
+  const ar = `${w} / ${h}`;
   $('outputsSection').classList.remove('hidden');
   const card = document.createElement('div');
   card.className = 'output-card';
   const label = type === 'video' ? 'Video' : 'Cover PNG';
   const media = type === 'video'
-    ? `<video src="${url}" autoplay loop muted playsinline style="aspect-ratio:${w} / ${h}"></video>`
-    : `<img src="${url}" alt="" style="aspect-ratio:${w} / ${h}">`;
+    ? `<video src="${url}" autoplay loop muted playsinline style="aspect-ratio:${ar}"></video>`
+    : `<img src="${url}" alt="" style="aspect-ratio:${ar}">`;
   card.innerHTML = `<div class="output-label">${label}</div>${media}<button type="button" class="download-btn">Download .${ext}</button>`;
   card.querySelector('.download-btn').addEventListener('click', () => {
     const a = document.createElement('a'); a.href = url; a.download = filename;
@@ -1137,84 +1220,9 @@ function addOutput(type, blob, filename, ext) {
   $('outputsGrid').appendChild(card);
 }
 
-// ── Frame system (unchanged) ──────────────────────────────────────────────
-let framesConfig = { story: [], portrait: [], square: [] };
-let activeFrameImg = null, activeFramePlaceholder = null, activeFrameRadius = 15;
-
-async function loadFramesConfig() {
-  try {
-    const res = await fetch('assets/video-frames/frames.json?t=' + Date.now(), { cache: 'no-store' });
-    if (res.ok) framesConfig = await res.json();
-  } catch(e) { console.info('frames.json not found — no frames registered yet.'); }
-}
-
-async function detectPlaceholder(img) {
-  const oc = document.createElement('canvas'); oc.width = img.naturalWidth; oc.height = img.naturalHeight;
-  const octx = oc.getContext('2d'); octx.drawImage(img, 0, 0);
-  let data;
-  try { data = octx.getImageData(0, 0, oc.width, oc.height).data; } catch(e) { data = null; }
-  let minX = oc.width, minY = oc.height, maxX = 0, maxY = 0, found = false;
-  if (data) {
-    for (let y = 0; y < oc.height; y++) for (let x = 0; x < oc.width; x++) {
-      if (data[(y * oc.width + x) * 4 + 3] < 50) {
-        if (x < minX) minX = x; if (x > maxX) maxX = x;
-        if (y < minY) minY = y; if (y > maxY) maxY = y; found = true;
-      }
-    }
-  }
-  if (found) return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
-  const pad = Math.round(Math.min(oc.width, oc.height) * 0.05);
-  return { x: pad, y: pad, width: oc.width - pad * 2, height: oc.height - pad * 2 };
-}
-
-async function loadFrame(cfg) {
-  return new Promise(resolve => {
-    const img = new Image(); img.crossOrigin = 'anonymous';
-    img.onload = async () => {
-      activeFrameImg = img; activeFrameRadius = cfg.radius != null ? cfg.radius : 15;
-      activeFramePlaceholder = await detectPlaceholder(img); resolve();
-    };
-    img.onerror = () => { activeFrameImg = null; activeFramePlaceholder = null; console.warn('Could not load frame:', cfg.src); resolve(); };
-    img.src = cfg.src;
-  });
-}
-
-async function updateFramePicker() {
-  const grid = $('framePickerGrid'), empty = $('framePickerEmpty');
-  grid.innerHTML = '';
-  const frames = framesConfig[activeRatio] || [];
-  if (!frames.length) { grid.classList.add('hidden'); empty.classList.remove('hidden'); activeFrameImg = null; activeFramePlaceholder = null; return; }
-  grid.classList.remove('hidden'); empty.classList.add('hidden');
-  frames.forEach(cfg => {
-    const wrap = document.createElement('div'); wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;';
-    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'frame-thumb-btn'; btn.title = cfg.label;
-    const imgEl = document.createElement('img'); imgEl.src = cfg.src; imgEl.alt = cfg.label; btn.appendChild(imgEl);
-    const lbl = document.createElement('span'); lbl.className = 'frame-thumb-label'; lbl.textContent = cfg.label;
-    btn.addEventListener('click', async () => {
-      grid.querySelectorAll('.frame-thumb-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); await loadFrame(cfg); redrawIfPaused();
-    });
-    wrap.appendChild(btn); wrap.appendChild(lbl); grid.appendChild(wrap);
-  });
-  const first = grid.querySelector('.frame-thumb-btn');
-  if (first) { first.classList.add('active'); await loadFrame(frames[0]); redrawIfPaused(); }
-}
-
-// Mobile: side-by-side with sticky preview
-const mobileStyle = document.createElement('style');
-mobileStyle.textContent = `
-  @media (max-width: 599px) {
-    .video-layout { flex-direction: row; align-items: flex-start; gap: 12px; }
-    .video-preview-col { flex-shrink: 0; width: 120px; position: sticky;
-      top: calc(56px + env(safe-area-inset-top) + 8px); align-self: flex-start; }
-    .canvas-wrap { max-width: 120px; margin: 0; }
-    .video-controls-col { flex: 1; min-width: 0; }
-  }`;
-document.head.appendChild(mobileStyle);
-
-// ── Boot ──────────────────────────────────────────────────────────────────
-const { w, h } = getCanvasDims(); canvas.width = w; canvas.height = h;
-drawBlankFrame(w, h);
-loadFramesConfig();
+// ---- Boot ----
+drawBlankFrame(canvas.width, canvas.height);
+loadFramesConfig(); // fetch frames.json in background — picker updates when Framed is selected
 </script>
 </body>
 </html>
