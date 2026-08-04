@@ -807,6 +807,133 @@ function extractFrames(file, attachmentType, opts) {
 // The engine
 // ============================================================================
 
+
+// ============================================================================
+// NEW: flexible named-layer scripts (text:, font:, image: slot convention)
+// ============================================================================
+
+function buildEditTextLayerScript(artboardName, layerName, newText) {
+  const escapedText = newText.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/\r?\n/g, '\\n');
+  const escapedLayer = layerName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `
+(function(){
+  ${ARTBOARD_HELPERS}
+  try {
+    var doc = app.activeDocument;
+    var group = findTopLevelGroup(doc, "${artboardName}");
+    if (!group) { app.echoToOE(JSON.stringify({ __poc:"edit_error", step:"text", message:"Artboard not found." })); app.echoToOE("done"); return; }
+    var target = findLayerByName(group.layers, "${escapedLayer}");
+    if (!target) {
+      app.echoToOE(JSON.stringify({ __poc:"edit_error", step:"text", artboard:"${artboardName}", message:"No layer named '${escapedLayer}' found." }));
+    } else {
+      target.textItem.contents = "${escapedText}";
+      app.echoToOE(JSON.stringify({ __poc:"edit_ok", step:"text", artboard:"${artboardName}", layerName:target.name }));
+    }
+  } catch(e) { app.echoToOE(JSON.stringify({ __poc:"edit_error", step:"text", message:String(e) })); }
+  app.echoToOE("done");
+})();
+`;
+}
+
+function buildSetFontScript(artboardName, layerName, fontPsName) {
+  const escapedLayer = layerName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const escapedFont  = fontPsName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `
+(function(){
+  ${ARTBOARD_HELPERS}
+  try {
+    var doc = app.activeDocument;
+    var group = findTopLevelGroup(doc, "${artboardName}");
+    if (!group) { app.echoToOE("done"); return; }
+    var target = findLayerByName(group.layers, "${escapedLayer}");
+    if (target && target.kind == LayerKind.TEXT) {
+      target.textItem.font = "${escapedFont}";
+      app.echoToOE(JSON.stringify({ __poc:"edit_ok", step:"font", layerName:target.name, font:"${escapedFont}" }));
+    } else {
+      app.echoToOE(JSON.stringify({ __poc:"edit_error", step:"font", message:"Layer '${escapedLayer}' not found or not a text layer." }));
+    }
+  } catch(e) { app.echoToOE(JSON.stringify({ __poc:"edit_error", step:"font", message:String(e) })); }
+  app.echoToOE("done");
+})();
+`;
+}
+
+function buildSlotKickoffOpenScript(artboardName, slotName, dataUrl) {
+  const escapedSlot = slotName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `
+(function(){
+  ${ARTBOARD_HELPERS}
+  try {
+    var doc = app.activeDocument;
+    var group = findTopLevelGroup(doc, "${artboardName}");
+    if (!group) { app.echoToOE("done"); return; }
+    var slot = findLayerByName(group.layers, "${escapedSlot}");
+    if (!slot) {
+      app.echoToOE(JSON.stringify({ __poc:"edit_error", step:"slot_image", message:"Slot '${escapedSlot}' not found in '${artboardName}'." }));
+      app.echoToOE("done"); return;
+    }
+    var searchIn = (slot.typename === "LayerSet") ? slot.layers : group.layers;
+    var oldImg = findLayerByName(searchIn, "Image");
+    if (oldImg) doc.activeLayer = oldImg;
+    app.open("${dataUrl}", null, true);
+  } catch(e) { app.echoToOE(JSON.stringify({ __poc:"edit_error", step:"slot_image", message:"app.open() failed: "+String(e) })); }
+  app.echoToOE("done");
+})();
+`;
+}
+
+function buildSlotFinalizeImagePlacementScript(artboardName, slotName, fitMode) {
+  const escapedSlot = slotName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `
+(function(){
+  ${ARTBOARD_HELPERS}
+  try {
+    var doc = app.activeDocument;
+    var group = findTopLevelGroup(doc, "${artboardName}");
+    if (!group) { app.echoToOE(JSON.stringify({ __poc:"edit_error", step:"slot_image", message:"Artboard not found." })); app.echoToOE("done"); return; }
+    var slot = findLayerByName(group.layers, "${escapedSlot}");
+    if (!slot || slot.typename !== "LayerSet") { app.echoToOE(JSON.stringify({ __poc:"edit_error", step:"slot_image", message:"Slot group '${escapedSlot}' not found or not a group." })); app.echoToOE("done"); return; }
+    var oldImg   = findLayerByName(slot.layers, "Image");
+    var newLayer = doc.activeLayer;
+    if (!oldImg) { app.echoToOE(JSON.stringify({ __poc:"edit_error", step:"slot_image", message:"No 'Image' layer inside slot '${escapedSlot}'." })); app.echoToOE("done"); return; }
+    if (!newLayer || newLayer.name === oldImg.name) { app.echoToOE(JSON.stringify({ __poc:"edit_error", step:"slot_image", message:"Could not identify newly inserted layer." })); app.echoToOE("done"); return; }
+    var placeholder = findLayerByName(slot.layers, "Image Placeholder");
+    if (!placeholder) {
+      var imgIdx = -1;
+      for (var ti = 0; ti < slot.layers.length; ti++) { if (slot.layers[ti].name === oldImg.name) { imgIdx = ti; break; } }
+      if (imgIdx >= 0 && imgIdx + 1 < slot.layers.length) placeholder = slot.layers[imgIdx + 1];
+    }
+    var src = placeholder || oldImg;
+    var ob = src.bounds;
+    var tW = ob[2].value-ob[0].value, tH = ob[3].value-ob[1].value;
+    var tCx = (ob[0].value+ob[2].value)/2, tCy = (ob[1].value+ob[3].value)/2;
+    var nb = newLayer.bounds; var cW = nb[2].value-nb[0].value, cH = nb[3].value-nb[1].value;
+    var sc = (${fitMode === "fit" ? "Math.min" : "Math.max"})(tW/cW, tH/cH)*100;
+    newLayer.resize(sc, sc, AnchorPosition.TOPLEFT);
+    var nb2 = newLayer.bounds;
+    newLayer.translate(tCx-(nb2[0].value+nb2[2].value)/2, tCy-(nb2[1].value+nb2[3].value)/2);
+    newLayer.move(oldImg, ElementPlacement.PLACEBEFORE);
+    oldImg.remove(); newLayer.grouped = true; newLayer.name = "Image";
+    app.echoToOE(JSON.stringify({ __poc:"edit_ok", step:"slot_image", artboard:"${artboardName}", slot:"${escapedSlot}", layerName:newLayer.name }));
+  } catch(e) { app.echoToOE(JSON.stringify({ __poc:"edit_error", step:"slot_image", message:String(e) })); }
+  app.echoToOE("done");
+})();
+`;
+}
+
+function buildSlotLayerCountScript(artboardName, slotName) {
+  return `
+(function(){
+  ${ARTBOARD_HELPERS}
+  try {
+    var doc = app.activeDocument;
+    app.echoToOE(JSON.stringify({ __poc:"layer_count_check", artboard:"${artboardName}", count:countAllLayers(doc.layers), activeLayerName:doc.activeLayer?doc.activeLayer.name:null }));
+  } catch(e) { app.echoToOE(JSON.stringify({ __poc:"edit_error", message:String(e) })); }
+  app.echoToOE("done");
+})();
+`;
+}
+
 export class PostManRenderEngine {
   /**
    * @param {HTMLIFrameElement} iframeEl - an iframe already pointed at
@@ -1137,6 +1264,125 @@ export class PostManRenderEngine {
     }
     return { binary, bounds };
   }
+
+  // ==========================================================================
+  // FLEXIBLE API — named layers, font switching, image slots
+  // ==========================================================================
+
+  /**
+   * Edit ANY named text layer inside an artboard.
+   * Works for both new convention ('text:headline', 'font:name a') and
+   * legacy ('headline text'). Prefer this over editHeadline() for new templates.
+   */
+  async editTextLayer(artboardName, layerName, text) {
+    const { outputs } = await this.channel.call(buildEditTextLayerScript(artboardName, layerName, text));
+    return this._reportEditOutcome(outputs, `${artboardName} / "${layerName}"`);
+  }
+
+  /**
+   * Apply a font (PostScript name from fonts.json 'psName' field) to any text layer.
+   * Always call AFTER editTextLayer() — Photopea can reset font when content changes.
+   * Pass null/undefined to skip (layer keeps its PSD font).
+   */
+  async setTextFont(artboardName, layerName, fontPsName) {
+    if (!fontPsName) return { ok: true };
+    const { outputs } = await this.channel.call(buildSetFontScript(artboardName, layerName, fontPsName));
+    return this._reportEditOutcome(outputs, `${artboardName} / font on "${layerName}"`);
+  }
+
+  /**
+   * Insert a static image into a NAMED slot group (e.g. 'image:player a').
+   * The slot group must contain 'Image' and optionally 'Image Placeholder'.
+   * For legacy bare 'Image' layers at the artboard level, use insertStaticImage().
+   */
+  async insertImageToSlot(artboardName, slotName, dataUrl, fitMode = 'cover') {
+    const before   = await this.channel.call(buildSlotLayerCountScript(artboardName, slotName));
+    const baseline = this._parseLayerCount(before.outputs);
+    if (baseline === null) return { ok: false, message: `Could not get baseline layer count for slot "${slotName}".` };
+
+    await this.channel.call(buildSlotKickoffOpenScript(artboardName, slotName, dataUrl));
+
+    for (let i = 0; i < 25; i++) {
+      await new Promise((r) => setTimeout(r, 200));
+      const check = await this.channel.call(buildSlotLayerCountScript(artboardName, slotName));
+      const count = this._parseLayerCount(check.outputs);
+      if (count !== null && count > baseline) break;
+      if (i === 24) return { ok: false, message: `Gave up waiting for new image layer in slot "${slotName}".` };
+    }
+
+    const { outputs } = await this.channel.call(buildSlotFinalizeImagePlacementScript(artboardName, slotName, fitMode));
+    return this._reportEditOutcome(outputs, `${artboardName} / slot "${slotName}"`);
+  }
+
+  /**
+   * Reads artboard metadata (from vetTemplate / extract) and returns every
+   * user-editable field in document order.
+   *
+   * PSD naming convention:
+   *   text:LABEL  → editable text, font locked to PSD designer choice
+   *   font:LABEL  → editable text + user picks font (each layer gets its own picker)
+   *   image:LABEL → editable image slot (LayerSet containing Image / Image Placeholder)
+   *
+   * Backwards compatible:
+   *   'headline text' → editable text, font locked  (only if no text:/font: fields present)
+   *   'Image' at depth 1 → editable image           (only if no image: groups present)
+   *
+   * @param {Array} artboards - artboards array from vetTemplate() or extract()
+   * @returns {Array<{type,layerName,label,artboard,fontSwitchable,legacy}>}
+   */
+  static discoverFields(artboards) {
+    const toLabel = (s) => s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+    const fields  = [];
+
+    for (const ab of artboards) {
+      const abName  = ab.name;
+      const layers  = ab.childLayerNames || [];
+      let hasNewText  = false;
+      let hasNewImage = false;
+
+      // First pass: collect new-convention fields
+      for (const layer of layers) {
+        const n = layer.name || '';
+        if (n.startsWith('text:')) {
+          fields.push({ type:'text', fontSwitchable:false, layerName:n, label:toLabel(n.slice(5)), artboard:abName, legacy:false });
+          hasNewText = true;
+        } else if (n.startsWith('font:')) {
+          fields.push({ type:'text', fontSwitchable:true,  layerName:n, label:toLabel(n.slice(5)), artboard:abName, legacy:false });
+          hasNewText = true;
+        } else if (n.startsWith('image:') && layer.typename === 'LayerSet') {
+          fields.push({ type:'image', layerName:n, label:toLabel(n.slice(6)), artboard:abName, legacy:false });
+          hasNewImage = true;
+        }
+      }
+      // Second pass: legacy fields — only if no new-convention equivalent exists
+      if (!hasNewText) {
+        const hl = layers.find((l) => l.name === 'headline text' && l.isTextLayer);
+        if (hl) fields.push({ type:'text', fontSwitchable:false, layerName:'headline text', label:'Headline', artboard:abName, legacy:true });
+      }
+      if (!hasNewImage) {
+        const img = layers.find((l) => l.name === 'Image' && l.depth === 1);
+        if (img) fields.push({ type:'image', layerName:'Image', label:'Photo', artboard:abName, legacy:true });
+      }
+    }
+    return fields;
+  }
+
+  /**
+   * Set the Photopea iframe src so fonts.json fonts are pre-loaded at boot.
+   * Call BEFORE engine.boot(). All fonts in the bank are loaded once; the
+   * user then selects from them per layer. Fonts outside the bank cannot be used.
+   *
+   * @param {HTMLIFrameElement} iframe
+   * @param {Array}             fonts  - the 'fonts' array from fonts.json
+   */
+  static configureFontedIframeSrc(iframe, fonts = []) {
+    if (!fonts.length) { iframe.src = 'https://www.photopea.com/#'; return; }
+    const config = JSON.stringify({
+      fonts: fonts.map((f) => ({ url: new URL(f.url, window.location.href).href })),
+    });
+    iframe.src = `https://www.photopea.com/#${encodeURIComponent(config)}`;
+  }
+
 }
 
 // ============================================================================
