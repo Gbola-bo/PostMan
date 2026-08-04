@@ -1,5 +1,5 @@
 {
-  "_note": "Add fonts here to make them available in PostMann. The 'psName' field must match the PostScript/internal font name that Photopea reports — verify by opening the font in Photopea, adding it to a text layer, then running app.echoToOE(app.activeDocument.activeLayer.textItem.font) to see the exact string.",
+  "_note": "psName must match the PostScript name inside the font file — for these fonts it matches the TTF filename without the extension. Verify by loading into Photopea, selecting a text layer in that font, then running: app.activeDocument.activeLayer.textItem.font",
   "fonts": [
     {
       "id": "funnel-display",
@@ -10,13 +10,13 @@
     {
       "id": "coffeecake",
       "label": "CoffeeCake",
-      "url": "assets/fonts/coffeecake.otf",
-      "psName": "CoffeeCake"
+      "url": "assets/fonts/CoffeCake.ttf",
+      "psName": "CoffeCake"
     },
     {
       "id": "riffic",
       "label": "Riffic Free",
-      "url": "assets/fonts/riffic-free.otf",
+      "url": "assets/fonts/RifficFree-Bold.ttf",
       "psName": "RifficFree-Bold"
     }
   ]
