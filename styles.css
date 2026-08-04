@@ -645,29 +645,3 @@ img { max-width: 100%; display: block; }
   color: var(--brand-800);
 }
 .fit-btn:active { opacity: 0.8; }
-/* ===== Dynamic form — font picker row ===== */
-/* font: text layers get a text input + font dropdown side by side */
-.field-font-row {
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
-}
-.field-font-row .text-input {
-  flex: 1;
-  min-width: 0;
-}
-.font-select {
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: 0 10px;
-  min-height: 44px;
-  min-width: 130px;
-  background: var(--surface);
-  color: var(--text-primary);
-  flex-shrink: 0;
-  cursor: pointer;
-}
-.font-select:focus { outline: 2px solid var(--brand-200); border-color: var(--brand-600); }
