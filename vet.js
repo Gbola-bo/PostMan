@@ -1,4 +1,4 @@
-import { PostManRenderEngine } from './render-engine.js?v=7';
+import { PostManRenderEngine } from './render-engine.js?v=17';
 
 // Splits a manifest into a lightweight index (everything the dashboard
 // needs to render cards - no metadata) plus one detail-file payload per
@@ -209,6 +209,10 @@ runVetBtn.addEventListener('click', async () => {
     }
 
     if (report.passed) {
+      // Discover editable fields — show designer exactly what the non-designer will see
+      const discoveredFields = PostManRenderEngine.discoverFields(report.extraction.artboards || []);
+      renderDiscoveredFields(discoveredFields);
+
       const manifestEntry = {
         id: templateId,
         name: templateName,
@@ -241,6 +245,37 @@ runVetBtn.addEventListener('click', async () => {
     runVetBtn.disabled = false;
   }
 });
+
+// Show the designer exactly what form fields the non-designer will see,
+// and whether font switching is available per field.
+function renderDiscoveredFields(fields) {
+  const box = $('discoveredFieldsBox');
+  const list = $('discoveredFieldsList');
+  if (!box || !list) return; // graceful if HTML not updated yet
+  list.innerHTML = '';
+  if (!fields.length) {
+    list.innerHTML = '<li style="color:var(--text-tertiary);">No editable fields detected (no text:, font:, or image: layers, and no legacy headline text / Image layers found).</li>';
+  } else {
+    const byArtboard = {};
+    fields.forEach((f) => {
+      (byArtboard[f.artboard] = byArtboard[f.artboard] || []).push(f);
+    });
+    Object.entries(byArtboard).forEach(([ab, abFields]) => {
+      const groupEl = document.createElement('li');
+      groupEl.style.cssText = 'font-weight:600; margin-top:8px; list-style:none;';
+      groupEl.textContent = ab;
+      list.appendChild(groupEl);
+      abFields.forEach((f) => {
+        const li = document.createElement('li');
+        const typeLabel = f.type === 'image' ? '🖼 Image' : f.fontSwitchable ? '✏️ Text + Font' : '✏️ Text';
+        const legacyNote = f.legacy ? ' (legacy name)' : '';
+        li.innerHTML = `&nbsp;&nbsp;&nbsp;${typeLabel}: <strong>${f.label}</strong> <span style="color:var(--text-tertiary);font-size:11px;">${f.layerName}${legacyNote}</span>`;
+        list.appendChild(li);
+      });
+    });
+  }
+  box.classList.remove('hidden');
+}
 
 function renderDetailFileLinks(detailFiles) {
   const box = $('detailFilesBox');
