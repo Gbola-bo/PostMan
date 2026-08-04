@@ -1,4 +1,4 @@
-import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=17';
+import { PostManRenderEngine, applyCropToImage, extractFrames, fileToDataUrl } from './render-engine.js?v=16';
 
 // ---------- DOM refs ----------
 const $ = (id) => document.getElementById(id);
@@ -30,12 +30,10 @@ window.addEventListener('popstate', (e) => {
 });
 
 // ---------- State ----------
-let manifest    = null;
+let manifest = null;
 let currentTemplate = null;
-let fontBank    = [];          // loaded from fonts.json on startup
-const cropRects = new Map();   // keyed by "{slideKey}:{slotName}" for slots, "{slideKey}" for legacy
-const fitModes  = new Map();   // same key space → 'cover' | 'fit'
-const slotFonts = new Map();   // keyed by "{slideKey}:{layerName}" → font psName
+const cropRects = new Map(); // keyed by slide key ('cover', 'middle-0', ...)
+const fitModes  = new Map(); // keyed by slide key → 'cover' | 'fit'  (default: 'cover')
 let middleCount = 1;
 let currentPageIndex = 0;
 const templateDetailsCache = new Map(); // template id -> metadata, fetched lazily on first open
@@ -66,16 +64,12 @@ async function fetchTemplateMetadata(template) {
 
 // ---------- Load manifest, render dashboard ----------
 async function loadManifest() {
-  // Load font bank and manifest in parallel — both needed before anything renders.
-  const [manifestRes, fontsRes] = await Promise.all([
-    fetch(`templates/manifest.json?t=${Date.now()}`, { cache: 'no-store' }),
-    fetch(`fonts.json?t=${Date.now()}`, { cache: 'no-store' }).catch(() => null),
-  ]);
-  manifest = await manifestRes.json();
-  if (fontsRes && fontsRes.ok) {
-    const fontsData = await fontsRes.json();
-    fontBank = fontsData.fonts || [];
-  }
+  // no-store + a timestamp query param: belt-and-suspenders against both
+  // the browser's own cache and any CDN/proxy in front of GitHub Pages
+  // serving a stale copy. manifest.json changes every time a template is
+  // added, so staleness here directly causes "I pushed but don't see it."
+  const res = await fetch(`templates/manifest.json?t=${Date.now()}`, { cache: 'no-store' });
+  manifest = await res.json();
   renderDashboard();
 }
 
@@ -141,7 +135,6 @@ async function openTemplate(template, { forceRebuild = false } = {}) {
   currentTemplate = { ...template, metadata };
   cropRects.clear();
   fitModes.clear();
-  slotFonts.clear();
   middleCount = 1;
   renderForm();
 }
@@ -245,179 +238,70 @@ function buildFormPage(artboardName, key, label) {
   return page;
 }
 
-// ── Dynamic form builder ─────────────────────────────────────────────────
-// Uses PostManRenderEngine.discoverFields() to read the template metadata
-// and generate the right inputs for EACH artboard automatically.
-// Both the new convention (text:, font:, image:) and legacy fields work.
-
 function buildSlideFields(artboardName, key) {
   const card = document.createElement('div');
   card.className = 'slide-card';
-  card.dataset.key   = key;
+  card.dataset.key = key;
   card.dataset.artboard = artboardName;
-
-  // Get the discovered fields for this artboard
-  const ab = (currentTemplate.metadata?.artboards || []).find(
-    (a) => a.name.toLowerCase() === artboardName.toLowerCase()
-  );
-  const fields = PostManRenderEngine.discoverFields(ab ? [ab] : []);
-
-  // Render each field
-  fields.forEach((field) => {
-    if (field.type === 'text') {
-      buildTextField(card, key, artboardName, field);
-    } else if (field.type === 'image') {
-      buildImageField(card, key, artboardName, field);
-    }
-  });
-
-  // Fallback: if metadata has no fields at all, show the old generic layout
-  if (!fields.length) {
-    buildTextField(card, key, artboardName, { layerName: 'headline text', label: 'Headline text', fontSwitchable: false, legacy: true });
-    buildImageField(card, key, artboardName, { layerName: 'Image', label: 'Photo / GIF', legacy: true });
-  }
-
-  return card;
-}
-
-function buildTextField(card, key, artboardName, field) {
-  const wrapId = `font-${key}-${field.layerName.replace(/[^a-z0-9]/gi, '_')}`;
-  const label = document.createElement('label');
-  label.className = 'field-label';
-  label.style.marginTop = card.children.length === 0 ? '0' : '';
-  label.textContent = field.label;
-  card.appendChild(label);
-
-  if (field.fontSwitchable && fontBank.length) {
-    // font: layer — text input + inline font picker side by side
-    const row = document.createElement('div');
-    row.className = 'field-font-row';
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'text-input field-text-layer';
-    input.dataset.layerName = field.layerName;
-    input.placeholder = 'Leave blank to skip';
-    const sel = document.createElement('select');
-    sel.className = 'select-input font-select';
-    sel.dataset.layerName = field.layerName;
-    sel.title = 'Font for this text layer';
-    sel.innerHTML = '<option value="">Template font</option>' +
-      fontBank.map((f) => `<option value="${escapeHtml(f.psName)}">${escapeHtml(f.label)}</option>`).join('');
-    sel.addEventListener('change', () => slotFonts.set(`${key}:${field.layerName}`, sel.value));
-    row.appendChild(input);
-    row.appendChild(sel);
-    card.appendChild(row);
-  } else {
-    // text: or legacy headline — plain text input
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = `text-input field-text-layer${field.legacy ? ' field-headline' : ''}`;
-    input.dataset.layerName = field.layerName;
-    input.placeholder = 'Leave blank to skip';
-    card.appendChild(input);
-  }
-}
-
-function buildImageField(card, key, artboardName, field) {
-  // Each image slot gets its own crop key so multiple images per slide
-  // (e.g. image:player a and image:player b) are tracked independently.
-  const slotKey = field.legacy ? key : `${key}:${field.layerName}`;
-
-  const label = document.createElement('label');
-  label.className = 'field-label';
-  label.textContent = field.label;
-  card.appendChild(label);
-
-  // Attachment type (image / gif) — only for legacy single-image slots
-  // For named slots we always use image (GIF support via existing insertFrames could be added later)
-  if (field.legacy) {
-    const typeLabel = document.createElement('label');
-    typeLabel.className = 'field-label';
-    typeLabel.textContent = 'Attachment type';
-    card.appendChild(typeLabel);
-    const typeSelect = document.createElement('select');
-    typeSelect.className = 'select-input field-type';
-    typeSelect.dataset.slotKey = slotKey;
-    typeSelect.innerHTML = '<option value="image" selected>Image</option><option value="gif">GIF</option>';
-    card.appendChild(typeSelect);
-  }
-
-  const fileRow = document.createElement('div');
-  fileRow.className = 'file-row';
-  fileRow.innerHTML = `
-    <label class="file-input-label">
-      Choose file
-      <input type="file" class="field-file hidden" accept="image/*"
-             data-slot-key="${escapeHtml(slotKey)}"
-             data-slot-name="${escapeHtml(field.layerName)}"
-             data-legacy="${field.legacy ? '1' : '0'}">
-    </label>
-    <span class="file-name"></span>
-    <span class="crop-edit-link hidden">Edit crop</span>
+  card.innerHTML = `
+    <label class="field-label" style="margin-top:0;">Headline text</label>
+    <input type="text" class="text-input field-headline" placeholder="Leave blank to skip">
+    <label class="field-label">Attachment type</label>
+    <select class="select-input field-type">
+      <option value="image" selected>Image</option>
+      <option value="gif">GIF</option>
+    </select>
+    <label class="field-label">Photo / GIF</label>
+    <div class="file-row">
+      <label class="file-input-label">
+        Choose file
+        <input type="file" class="field-file hidden" accept="image/*">
+      </label>
+      <span class="file-name"></span>
+      <span class="crop-edit-link hidden">Edit crop</span>
+    </div>
   `;
-  card.appendChild(fileRow);
 
-  const fileInput   = fileRow.querySelector('.field-file');
-  const fileNameSpan = fileRow.querySelector('.file-name');
-  const cropEditLink = fileRow.querySelector('.crop-edit-link');
-  const typeSelect  = card.querySelector(`.field-type[data-slot-key="${CSS.escape(slotKey)}"]`);
+  const fileInput = card.querySelector('.field-file');
+  const typeSelect = card.querySelector('.field-type');
+  const fileNameSpan = card.querySelector('.file-name');
+  const cropEditLink = card.querySelector('.crop-edit-link');
 
-  if (typeSelect) {
-    typeSelect.addEventListener('change', () => {
-      fileInput.accept = typeSelect.value === 'gif' ? 'image/gif' : 'image/*';
-      fileInput.value = '';
-      fileNameSpan.textContent = '';
-      cropEditLink.classList.add('hidden');
-      cropRects.delete(slotKey);
-    });
-  }
+  typeSelect.addEventListener('change', () => {
+    fileInput.accept = typeSelect.value === 'gif' ? 'image/gif' : 'image/*';
+    fileInput.value = '';
+    fileNameSpan.textContent = '';
+    cropEditLink.classList.add('hidden');
+    cropRects.delete(key);
+  });
 
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files[0];
     if (!file) {
       fileNameSpan.textContent = '';
-      cropRects.delete(slotKey);
-      fitModes.delete(slotKey);
+      cropRects.delete(key);
+      fitModes.delete(key);
       cropEditLink.classList.add('hidden');
       return;
     }
     fileNameSpan.textContent = file.name;
     cropEditLink.classList.add('hidden');
-    const aspectInfo = aspectInfoForSlot(artboardName, field.layerName, field.legacy);
+    const aspectInfo = aspectInfoFor(artboardName);
     if (!aspectInfo) return;
-    const attachmentType = typeSelect ? typeSelect.value : 'image';
-    await promptCrop(slotKey, file, attachmentType, aspectInfo.aspect, cropEditLink, fileInput);
+    // Open modal immediately — modal is where the user picks crop vs fit
+    await promptCrop(key, file, typeSelect.value, aspectInfo.aspect, cropEditLink, fileInput);
   });
 
   cropEditLink.addEventListener('click', async (e) => {
     e.preventDefault();
     const file = fileInput.files[0];
     if (!file) return;
-    const aspectInfo = aspectInfoForSlot(artboardName, field.layerName, field.legacy);
+    const aspectInfo = aspectInfoFor(artboardName);
     if (!aspectInfo) return;
-    const attachmentType = typeSelect ? typeSelect.value : 'image';
-    await promptCrop(slotKey, file, attachmentType, aspectInfo.aspect, cropEditLink, fileInput);
+    await promptCrop(key, file, typeSelect.value, aspectInfo.aspect, cropEditLink, fileInput);
   });
-}
 
-// Returns aspect info for a specific image layer name within an artboard.
-// For legacy "Image" slots: delegates to the existing aspectInfoFor().
-// For named "image:*" slots: searches inside the named group.
-function aspectInfoForSlot(artboardName, layerName, isLegacy) {
-  if (isLegacy) return aspectInfoFor(artboardName);
-  const ab = (currentTemplate.metadata?.artboards || []).find(
-    (a) => a.name.toLowerCase() === artboardName.toLowerCase()
-  );
-  if (!ab) return null;
-  const layers = ab.childLayerNames || [];
-  // Find layers that are children of the named slot group
-  // childLayerNames is flat so we find Image Placeholder/Image scoped by slot
-  // For now, use the same logic but scoped to slot group children
-  const placeholder = layers.find((c) => c.name === 'Image Placeholder' && c.bounds);
-  if (placeholder) return toAspect(placeholder.bounds);
-  const img = layers.find((c) => c.name === 'Image' && c.bounds);
-  if (img) return toAspect(img.bounds);
-  return null;
+  return card;
 }
 
 // ---------- Carousel navigation ----------
@@ -847,45 +731,15 @@ async function collectJobs() {
   const cards = Array.from($('formPagesTrack').querySelectorAll('.slide-card'));
   const jobs = [];
   for (const card of cards) {
-    const key      = card.dataset.key;
+    const key = card.dataset.key;
     const artboard = card.dataset.artboard;
-    const label    = key.startsWith('middle')
-      ? `${artboard}_${parseInt(key.split('-')[1], 10) + 1}`
-      : artboard;
-
-    // Collect all text fields (both new-convention and legacy)
-    const textFields = [];
-    card.querySelectorAll('.field-text-layer').forEach((input) => {
-      const layerName = input.dataset.layerName;
-      const value     = input.value.trim();
-      const fontKey   = `${key}:${layerName}`;
-      textFields.push({ layerName, value, fontPsName: slotFonts.get(fontKey) || null });
-    });
-
-    // Collect all image fields (may be multiple per card)
-    const imageFields = [];
-    for (const fileInput of card.querySelectorAll('.field-file')) {
-      const slotKey    = fileInput.dataset.slotKey;
-      const slotName   = fileInput.dataset.slotName;   // e.g. "image:player a" or "Image"
-      const isLegacy   = fileInput.dataset.legacy === '1';
-      const file       = fileInput.files[0] || null;
-      const typeEl     = card.querySelector(`.field-type[data-slot-key="${CSS.escape(slotKey)}"]`);
-      const attachType = typeEl ? typeEl.value : 'image';
-      let dataUrl = await fileToDataUrl(file);
-      if (attachType !== 'gif' && dataUrl) {
-        const rect = cropRects.get(slotKey);
-        if (rect) dataUrl = await applyCropToImage(dataUrl, rect).catch(() => dataUrl);
-      }
-      imageFields.push({
-        slotKey, slotName, isLegacy,
-        attachmentType: attachType,
-        file, dataUrl,
-        cropRect: cropRects.get(slotKey) || null,
-        fitMode:  fitModes.get(slotKey)  || 'cover',
-      });
-    }
-
-    jobs.push({ artboard, label, textFields, imageFields });
+    const label = key.startsWith('middle') ? `${artboard}_${key.split('-')[1] === '0' ? 1 : parseInt(key.split('-')[1], 10) + 1}` : artboard;
+    const headline = card.querySelector('.field-headline').value;
+    const attachmentType = card.querySelector('.field-type').value;
+    const file = card.querySelector('.field-file').files[0] || null;
+    let dataUrl = await fileToDataUrl(file);
+    dataUrl = await cropDataUrlIfNeeded(key, dataUrl, attachmentType);
+    jobs.push({ artboard, label, headline, attachmentType, file, dataUrl, cropRect: cropRects.get(key) || null, fitMode: fitModes.get(key) || 'cover' });
   }
   return jobs;
 }
@@ -899,9 +753,7 @@ async function runGeneration() {
 
   const iframe = document.createElement('iframe');
   iframe.style.display = 'none';
-  // Pre-load all font bank fonts into Photopea so they're available
-  // before any PSD is loaded. Fonts outside the bank cannot be applied.
-  PostManRenderEngine.configureFontedIframeSrc(iframe, fontBank);
+  iframe.src = 'https://www.photopea.com/#';
   document.body.appendChild(iframe);
 
   const engine = new PostManRenderEngine(iframe, {
@@ -937,52 +789,27 @@ async function runGeneration() {
 
 async function runOneJob(engine, job) {
   logStatus(`--- ${job.label} ---`, 'info');
-  let hasAnimated = false;
+  const isAnimated = job.attachmentType === 'gif';
 
-  // ── Text fields (both legacy and new-convention) ──────────────────────
-  for (const tf of (job.textFields || [])) {
-    if (!tf.value) continue;
-    await engine.editTextLayer(job.artboard, tf.layerName, tf.value);
-    if (tf.fontPsName) {
-      await engine.setTextFont(job.artboard, tf.layerName, tf.fontPsName);
-    }
-  }
+  if (job.headline) await engine.editHeadline(job.artboard, job.headline);
 
-  // ── Image / GIF fields ────────────────────────────────────────────────
-  for (const img of (job.imageFields || [])) {
-    if (!img.dataUrl && !img.file) continue;
-    if (img.attachmentType === 'gif' && img.file) {
-      hasAnimated = true;
-      let frames = null;
-      try {
-        frames = await extractFrames(img.file, 'gif', { maxFrames: 8 });
-        if (img.cropRect) {
-          frames = await Promise.all(frames.map(async (f) => ({
-            ...f, dataUrl: await applyCropToImage(f.dataUrl, img.cropRect).catch(() => f.dataUrl)
-          })));
-        }
-      } catch (e) {
-        logStatus(`${job.label}: frame extraction failed - ${e.message}`, 'err');
+  if (isAnimated && job.file) {
+    let frames = null;
+    try {
+      frames = await extractFrames(job.file, 'gif', { maxFrames: 8 });
+      if (job.cropRect) {
+        frames = await Promise.all(frames.map(async (f) => ({ ...f, dataUrl: await applyCropToImage(f.dataUrl, job.cropRect) })));
       }
-      if (frames?.length) {
-        if (img.isLegacy) {
-          await engine.insertFrames(job.artboard, frames, img.fitMode);
-        } else {
-          // Named slot GIF: insert frames into slot (first frame only for now, full GIF support TBD)
-          if (img.dataUrl) await engine.insertImageToSlot(job.artboard, img.slotName, img.dataUrl, img.fitMode);
-        }
-      }
-    } else if (img.dataUrl) {
-      if (img.isLegacy) {
-        await engine.insertStaticImage(job.artboard, img.dataUrl, img.fitMode);
-      } else {
-        await engine.insertImageToSlot(job.artboard, img.slotName, img.dataUrl, img.fitMode);
-      }
+    } catch (e) {
+      logStatus(`${job.label}: frame extraction failed - ${e.message}`, 'err');
     }
+    if (frames && frames.length) await engine.insertFrames(job.artboard, frames, job.fitMode);
+  } else if (job.dataUrl) {
+    await engine.insertStaticImage(job.artboard, job.dataUrl, job.fitMode);
   }
 
   try {
-    if (hasAnimated) {
+    if (isAnimated) {
       const { blob } = await engine.exportArtboardAnimated(job.artboard, 'gif');
       return { label: job.label, blob, ext: 'gif', croppedToArtboard: false };
     } else {
