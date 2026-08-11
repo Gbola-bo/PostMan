@@ -107,6 +107,24 @@
         "last": "templates/thumbnails/twitter-darkmode-purple-last.png"
       },
       "vettedAt": "2026-08-11T15:50:21.879Z"
+    },
+    {
+      "id": "twitter-purple",
+      "name": "Twitter (Purple)",
+      "file": "templates/twitter-purple.psd",
+      "thumbnail": "templates/thumbnails/twitter-purple.png",
+      "artboards": [
+        "Cover",
+        "Middle",
+        "Last"
+      ],
+      "repeatable": "Middle",
+      "artboardPreviews": {
+        "cover": "templates/thumbnails/twitter-purple-cover.png",
+        "middle": "templates/thumbnails/twitter-purple-middle.png",
+        "last": "templates/thumbnails/twitter-purple-last.png"
+      },
+      "vettedAt": "2026-08-11T15:59:35.407Z"
     }
   ]
 }
